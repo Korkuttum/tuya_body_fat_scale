@@ -1,0 +1,94 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Cihaz zaten yapılandırılmış"
+        },
+        "error": {
+            "cannot_connect": "Tuya API'ye bağlanılamadı",
+            "invalid_auth": "Geçersiz kimlik bilgileri",
+            "no_users": "Tartıda kullanıcı bulunamadı",
+            "user_config_failed": "Kullanıcı yapılandırması başarısız",
+            "invalid_date": "Geçersiz tarih formatı. GG.AA.YYYY kullanın",
+            "invalid_age": "Geçersiz yaş aralığı (0-120 yaş arası olmalı)"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "access_id": "Erişim ID",
+                    "access_key": "Erişim Anahtarı",
+                    "device_id": "Cihaz ID",
+                    "region": "Bölge",
+                    "scan_interval": "Güncelleme Aralığı (saniye)"
+                },
+                "description": "Tuya IoT Platform kimlik bilgilerinizi girin",
+                "title": "Tuya Akıllı Tartı Kurulumu"
+            },
+            "users": {
+                "data": {
+                    "user_id": "Kullanıcı ID",
+                    "user_name": "İsim",
+                    "birth_date": "Doğum Tarihi (GG.AA.YYYY)",
+                    "gender": "Cinsiyet"
+                },
+                "description": "Kullanıcı yapılandırması: {user_name}",
+                "title": "Kullanıcıları Yapılandır"
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "data": {
+                    "scan_interval": "Güncelleme Aralığı (saniye)"
+                },
+                "title": "Tuya Akıllı Tartı Seçenekleri"
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "weight": {
+                "name": "Ağırlık"
+            },
+            "bmi": {
+                "name": "VKİ"
+            },
+            "body_fat": {
+                "name": "Vücut Yağı"
+            },
+            "body_water": {
+                "name": "Vücut Suyu"
+            },
+            "bone_mass": {
+                "name": "Kemik Kütlesi"
+            },
+            "fat_free_mass": {
+                "name": "Yağsız Kütle"
+            },
+            "muscle_mass": {
+                "name": "Kas Kütlesi"
+            },
+            "protein": {
+                "name": "Protein"
+            },
+            "basal_metabolism": {
+                "name": "Bazal Metabolizma"
+            },
+            "visceral_fat": {
+                "name": "İç Yağ"
+            },
+            "body_age": {
+                "name": "Vücut Yaşı"
+            },
+            "body_type": {
+                "name": "Vücut Tipi"
+            },
+            "body_score": {
+                "name": "Vücut Skoru"
+            },
+            "last_measurement": {
+                "name": "Son Ölçüm"
+            }
+        }
+    }
+}

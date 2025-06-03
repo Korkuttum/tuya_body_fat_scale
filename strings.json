@@ -1,0 +1,48 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Tuya Body Fat Scale Setup",
+                "description": "Enter your Tuya IoT Platform credentials",
+                "data": {
+                    "access_id": "Access ID",
+                    "access_key": "Access Key",
+                    "device_id": "Device ID",
+                    "region": "Region",
+                    "scan_interval": "Update Interval (seconds)"
+                }
+            },
+            "users": {
+                "title": "Configure User: {user_name}",
+                "description": "Enter details for user {user_name}",
+                "data": {
+                    "user_id": "User ID",
+                    "user_name": "Name",
+                    "birth_date": "Birth Date (DD.MM.YYYY)",
+                    "gender": "Gender"
+                }
+            }
+        },
+        "error": {
+            "cannot_connect": "Failed to connect to Tuya API",
+            "invalid_auth": "Invalid authentication",
+            "no_users": "No users found on the scale",
+            "user_config_failed": "Failed to configure user",
+            "invalid_date": "Invalid date format. Use DD.MM.YYYY",
+            "invalid_age": "Invalid age range (must be between 0-120 years)"
+        },
+        "abort": {
+            "already_configured": "Device is already configured"
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Tuya Body Fat Scale Options",
+                "data": {
+                    "scan_interval": "Update Interval (seconds)"
+                }
+            }
+        }
+    }
+}

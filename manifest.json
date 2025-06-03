@@ -1,0 +1,11 @@
+{
+  "domain": "tuya_body_fat_scale",
+  "name": "Tuya Body Fat Scale",
+  "documentation": "https://github.com/yourusername/ha-tuya-body-fat-scale",
+  "dependencies": [],
+  "codeowners": ["@yourusername"],
+  "requirements": ["requests"],
+  "iot_class": "cloud_polling",
+  "version": "1.0.0",
+  "config_flow": true
+}

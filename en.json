@@ -1,0 +1,94 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Device is already configured"
+        },
+        "error": {
+            "cannot_connect": "Failed to connect to Tuya API",
+            "invalid_auth": "Invalid authentication credentials",
+            "no_users": "No users found on the scale",
+            "user_config_failed": "Failed to configure user",
+            "invalid_date": "Invalid date format. Use DD.MM.YYYY",
+            "invalid_age": "Invalid age range (must be between 0-120 years)"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "access_id": "Access ID",
+                    "access_key": "Access Key",
+                    "device_id": "Device ID",
+                    "region": "Region",
+                    "scan_interval": "Update Interval (seconds)"
+                },
+                "description": "Enter your Tuya IoT Platform credentials",
+                "title": "Tuya Body Fat Scale Setup"
+            },
+            "users": {
+                "data": {
+                    "user_id": "User ID",
+                    "user_name": "Name",
+                    "birth_date": "Birth Date (DD.MM.YYYY)",
+                    "gender": "Gender"
+                },
+                "description": "Configure user: {user_name}",
+                "title": "Configure Users"
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "data": {
+                    "scan_interval": "Update Interval (seconds)"
+                },
+                "title": "Tuya Body Fat Scale Options"
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "weight": {
+                "name": "Weight"
+            },
+            "bmi": {
+                "name": "BMI"
+            },
+            "body_fat": {
+                "name": "Body Fat"
+            },
+            "body_water": {
+                "name": "Body Water"
+            },
+            "bone_mass": {
+                "name": "Bone Mass"
+            },
+            "fat_free_mass": {
+                "name": "Fat Free Mass"
+            },
+            "muscle_mass": {
+                "name": "Muscle Mass"
+            },
+            "protein": {
+                "name": "Protein"
+            },
+            "basal_metabolism": {
+                "name": "Basal Metabolism"
+            },
+            "visceral_fat": {
+                "name": "Visceral Fat"
+            },
+            "body_age": {
+                "name": "Body Age"
+            },
+            "body_type": {
+                "name": "Body Type"
+            },
+            "body_score": {
+                "name": "Body Score"
+            },
+            "last_measurement": {
+                "name": "Last Measurement"
+            }
+        }
+    }
+}
