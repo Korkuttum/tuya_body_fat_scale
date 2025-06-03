@@ -1,11 +1,12 @@
 {
   "domain": "tuya_body_fat_scale",
   "name": "Tuya Body Fat Scale",
-  "documentation": "https://github.com/yourusername/ha-tuya-body-fat-scale",
-  "dependencies": [],
-  "codeowners": ["@yourusername"],
-  "requirements": ["requests"],
+  "codeowners": ["@Korkuttum"],
+  "config_flow": true,
+  "documentation": "https://github.com/Korkuttum/tuya_body_fat_scale",
+  "integration_type": "device",
   "iot_class": "cloud_polling",
-  "version": "1.0.0",
-  "config_flow": true
+  "issue_tracker": "https://github.com/Korkuttum/tuya_body_fat_scale/issues",
+  "requirements": ["requests>=2.25.0"],
+  "version": "1.0.0"
 }
