@@ -1,7 +1,7 @@
 """Support for Tuya Body Fat Scale sensors."""
 from __future__ import annotations
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta  # timedelta'yı ekledik
 
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -121,24 +121,24 @@ class TuyaScaleSensor(CoordinatorEntity, SensorEntity):
         """Return the state of the sensor."""
         if not self.available:
             return None
-            
+        
         try:
             user_data = self.coordinator.data[self._user_id]
             value = user_data.get(self._sensor_key)
-            
+        
             # Format specific values
             if self._sensor_key == "last_measurement":
                 try:
                     # Parse string to datetime if it's a string
                     if isinstance(value, str):
-                        dt = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-                    else:
-                        return None
-                    # Return datetime object with UTC timezone
-                    return dt.replace(tzinfo=timezone.utc)
+                        local_dt = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+                        # Convert to UTC by subtracting 3 hours
+                        utc_dt = local_dt - timedelta(hours=3)
+                        return utc_dt.replace(tzinfo=timezone.utc)
+                    return None
                 except (ValueError, TypeError):
                     return None
-                    
+                
             return value
         except Exception as err:
             _LOGGER.error(
