@@ -1,0 +1,1 @@
+# tuya_body_fat_scale
