@@ -50,7 +50,7 @@ Once installed (either through HACS or manually), you must restart Home Assistan
 5. Add user information:
    - User id
    - Name
-   - Birth Date
+   - Birth Date (DD.MM.YYYY)
    - Gender
 
 ---
