@@ -22,6 +22,13 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+def make_api_request(url: str, headers: dict, data: str = "") -> requests.Response:
+    """Make API request."""
+    _LOGGER.debug("Making API request to %s with headers %s", url, headers)
+    if data:
+        return requests.post(url, headers=headers, data=data)
+    return requests.get(url, headers=headers)
+
 class TuyaScaleAPI:
     """Tuya Scale API client."""
 
@@ -35,96 +42,163 @@ class TuyaScaleAPI:
         self._token = None
         self._token_expires = 0
 
-    def _sign_request(self, method: str, path: str, body: str = "") -> tuple:
+    def _calculate_sign(self, t: str, path: str, access_token: str = None, body: str = "") -> str:
         """Generate signature for request."""
-        timestamp = str(int(time.time() * 1000))
-        content_hash = hashlib.sha256(body.encode('utf8')).hexdigest()
-        string_to_sign = f"{method}\n{content_hash}\n\n{path}"
-        message = self._access_id + (self._token or "") + timestamp + string_to_sign
-        sign = hmac.new(
-            self._access_key.encode("utf-8"),
-            message.encode("utf-8"),
-            hashlib.sha256
-        ).hexdigest().upper()
-        
-        return timestamp, sign
+        try:
+            # String to sign
+            str_to_sign = []
+            str_to_sign.append("GET" if not body else "POST")
+            str_to_sign.append(hashlib.sha256(body.encode('utf8')).hexdigest())
+            str_to_sign.append("")  # Empty headers
+            str_to_sign.append(path)
+            str_to_sign = '\n'.join(str_to_sign)
+            
+            # Message
+            message = self._access_id
+            if access_token:
+                message += access_token
+            message += t + str_to_sign
+            
+            # Calculate signature
+            signature = hmac.new(
+                self._access_key.encode('utf-8'),
+                message.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest().upper()
+            
+            _LOGGER.debug(
+                "Signature calculation:\n"
+                "String to sign: %s\n"
+                "Message: %s\n"
+                "Signature: %s",
+                str_to_sign, message, signature
+            )
+            
+            return signature
+            
+        except Exception as err:
+            _LOGGER.error("Error generating signature: %s", str(err))
+            raise
 
     async def _get_token(self) -> None:
         """Get access token from Tuya."""
         try:
+            t = str(int(time.time() * 1000))
             path = "/v1.0/token?grant_type=1"
-            timestamp, sign = self._sign_request("GET", path)
+            sign = self._calculate_sign(t, path)
             
             headers = {
-                "client_id": self._access_id,
-                "sign": sign,
-                "t": timestamp,
-                "sign_method": "HMAC-SHA256"
+                'client_id': self._access_id,
+                'sign': sign,
+                't': t,
+                'sign_method': 'HMAC-SHA256'
             }
             
-            response = await self.hass.async_add_executor_job(
-                lambda: requests.get(
-                    f"{self._api_endpoint}{path}",
-                    headers=headers
-                )
-            )
-            response.raise_for_status()
-            result = response.json()
+            url = f"{self._api_endpoint}{path}"
             
-            if result.get("success", False):
-                self._token = result["result"]["access_token"]
-                self._token_expires = time.time() + result["result"]["expire_time"]
-            else:
-                raise Exception(result.get("msg", ERROR_AUTH))
-                
+            _LOGGER.debug(
+                "Getting token\n"
+                "URL: %s\n"
+                "Headers: %s",
+                url, json.dumps(headers, indent=2)
+            )
+            
+            response = await self.hass.async_add_executor_job(
+                make_api_request,
+                url,
+                headers
+            )
+            
+            _LOGGER.debug("Token response: %s", response.text)
+            
+            if response.status_code != 200:
+                _LOGGER.error(
+                    "Token request failed\n"
+                    "Status code: %s\n"
+                    "Response: %s",
+                    response.status_code, response.text
+                )
+                raise Exception(ERROR_AUTH)
+            
+            result = response.json()
+            if not result.get('success', False):
+                _LOGGER.error("Token request error: %s", result.get('msg'))
+                raise Exception(ERROR_AUTH)
+            
+            self._token = result['result']['access_token']
+            self._token_expires = time.time() + result['result']['expire_time']
+            _LOGGER.debug("Got access token: %s", self._token)
+            
         except Exception as err:
             _LOGGER.error("Error getting token: %s", str(err))
             raise
 
     async def _api_request(self, method: str, path: str, body: str = "") -> dict:
         """Make API request."""
-        if not self._token or time.time() >= self._token_expires:
-            await self._get_token()
-
-        timestamp, sign = self._sign_request(method, path, body)
-        
-        headers = {
-            "client_id": self._access_id,
-            "access_token": self._token,
-            "sign": sign,
-            "t": timestamp,
-            "sign_method": "HMAC-SHA256"
-        }
-        
-        if body:
-            headers["Content-Type"] = "application/json"
-
         try:
-            response = await self.hass.async_add_executor_job(
-                lambda: requests.request(
-                    method,
-                    f"{self._api_endpoint}{path}",
-                    headers=headers,
-                    data=body
-                )
-            )
-            response.raise_for_status()
-            result = response.json()
+            if not self._token or time.time() >= self._token_expires:
+                await self._get_token()
+
+            t = str(int(time.time() * 1000))
+            sign = self._calculate_sign(t, path, self._token, body)
             
-            if not result.get("success", False):
-                raise Exception(result.get("msg", ERROR_UNKNOWN))
-                
+            headers = {
+                'client_id': self._access_id,
+                'access_token': self._token,
+                'sign': sign,
+                't': t,
+                'sign_method': 'HMAC-SHA256'
+            }
+            
+            if body:
+                headers["Content-Type"] = "application/json"
+
+            url = f"{self._api_endpoint}{path}"
+            
+            _LOGGER.debug(
+                "Making API request - Method: %s\n"
+                "URL: %s\n"
+                "Headers: %s\n"
+                "Body: %s",
+                method, url, json.dumps(headers, indent=2), body
+            )
+
+            response = await self.hass.async_add_executor_job(
+                make_api_request,
+                url,
+                headers,
+                body
+            )
+            
+            _LOGGER.debug("API response: %s", response.text)
+            
+            if response.status_code == 401:
+                _LOGGER.info("Token expired, refreshing...")
+                self._token = None
+                return await self._api_request(method, path, body)
+            
+            if response.status_code != 200:
+                raise Exception(f"HTTP error {response.status_code}")
+            
+            result = response.json()
+            if not result.get('success', False):
+                msg = result.get('msg', '')
+                if 'token' in msg.lower():
+                    _LOGGER.info("Token invalid, refreshing...")
+                    self._token = None
+                    return await self._api_request(method, path, body)
+                raise Exception(f"API error: {msg}")
+            
             return result["result"]
             
         except Exception as err:
             _LOGGER.error("API request failed: %s", str(err))
             raise
 
-    async def get_scale_records(self, page_no: int = 1, page_size: int = 50) -> dict:
+    async def get_scale_records(self, page_no: int = 1, page_size: int = 20) -> dict:
         """Get scale records."""
-        path = f"/v1.0/scales/{self._device_id}/datas/history"
-        params = f"?page_no={page_no}&page_size={page_size}"
-        return await self._api_request("GET", path + params)
+        path = f"/v1.0/scales/{self._device_id}/datas/history?page_no={page_no}&page_size={page_size}"
+        return await self._api_request("GET", path)
 
     async def get_analysis_report(self, data: dict) -> dict:
         """Get body analysis report."""
