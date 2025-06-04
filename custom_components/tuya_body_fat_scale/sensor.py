@@ -1,7 +1,7 @@
 """Support for Tuya Body Fat Scale sensors."""
 from __future__ import annotations
 import logging
-from datetime import datetime, timezone, timedelta  # timedelta'yı ekledik
+from datetime import datetime, timezone, timedelta
 
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -71,6 +71,8 @@ async def async_setup_entry(
 class TuyaScaleSensor(CoordinatorEntity, SensorEntity):
     """Implementation of a Tuya Body Fat Scale sensor."""
 
+    entity_description_key: str
+
     def __init__(
         self,
         coordinator: TuyaScaleDataUpdateCoordinator,
@@ -86,12 +88,22 @@ class TuyaScaleSensor(CoordinatorEntity, SensorEntity):
         self._user_id = user_id
         self._sensor_key = sensor_key
         self._device_name = device_name
+        
+        # Translation key for sensor name
+        self.entity_description_key = sensor_key
         self._attr_has_entity_name = True
         
         # Set up unique ID
         self._attr_unique_id = f"{config_entry.entry_id}_{user_id}_{sensor_key}"
         
-        # Set device info - via_device removed for 2025.12 compatibility
+        # Get user name from coordinator data and clean it for entity_id
+        user_name = coordinator.data[user_id].get('name', user_id)
+        clean_name = self._clean_name(user_name)
+        
+        # Set entity_id using cleaned user name
+        self.entity_id = f"sensor.{DOMAIN}_{clean_name}_{sensor_key}"
+        
+        # Set device info
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{config_entry.entry_id}_{user_id}")},
             name=device_name,
@@ -99,12 +111,38 @@ class TuyaScaleSensor(CoordinatorEntity, SensorEntity):
             model="Body Fat Scale"
         )
         
-        # Set sensor specific attributes
+        # Set sensor specific attributes from SENSOR_TYPES
         sensor_info = SENSOR_TYPES[sensor_key]
         self._attr_device_class = sensor_info.get("device_class")
         self._attr_state_class = sensor_info.get("state_class")
         self._attr_icon = sensor_info.get("icon")
-        self._attr_name = sensor_info.get("name")
+        
+        # Set translation key for the entity
+        self._attr_translation_key = sensor_key
+
+    def _clean_name(self, name: str) -> str:
+        """Clean name for use in entity_id."""
+        # Replace Turkish characters
+        replacements = {
+            'ı': 'i', 'ğ': 'g', 'ü': 'u', 'ş': 's', 'ö': 'o', 'ç': 'c',
+            'İ': 'i', 'Ğ': 'g', 'Ü': 'u', 'Ş': 's', 'Ö': 'o', 'Ç': 'c'
+        }
+        
+        # First replace Turkish characters
+        for old, new in replacements.items():
+            name = name.replace(old, new)
+        
+        # Then convert to lowercase and replace spaces and special characters with underscore
+        import re
+        clean = re.sub(r'[^a-z0-9_]', '_', name.lower())
+        
+        # Remove consecutive underscores
+        clean = re.sub(r'_+', '_', clean)
+        
+        # Remove leading and trailing underscores
+        clean = clean.strip('_')
+        
+        return clean
 
     @property
     def available(self) -> bool:
@@ -128,7 +166,6 @@ class TuyaScaleSensor(CoordinatorEntity, SensorEntity):
             # Format specific values
             if self._sensor_key == "last_measurement":
                 try:
-                    # Parse string to datetime if it's a string
                     if isinstance(value, str):
                         local_dt = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
                         # Convert to UTC by subtracting 3 hours
