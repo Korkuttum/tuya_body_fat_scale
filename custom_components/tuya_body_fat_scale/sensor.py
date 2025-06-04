@@ -91,13 +91,12 @@ class TuyaScaleSensor(CoordinatorEntity, SensorEntity):
         # Set up unique ID
         self._attr_unique_id = f"{config_entry.entry_id}_{user_id}_{sensor_key}"
         
-        # Set device info
+        # Set device info - via_device removed for 2025.12 compatibility
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{config_entry.entry_id}_{user_id}")},
             name=device_name,
             manufacturer="Tuya",
-            model="Body Fat Scale",
-            via_device=(DOMAIN, config_entry.entry_id),
+            model="Body Fat Scale"
         )
         
         # Set sensor specific attributes
@@ -176,7 +175,7 @@ class TuyaScaleSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_unit_of_measurement(self) -> str | None:
         """Return the unit of measurement."""
-        if self._sensor_key == "weight":
+        if self._sensor_key in ["weight", "bone_mass", "muscle_mass", "fat_free_mass"]:
             return UnitOfMass.KILOGRAMS
         elif self._sensor_key in ["body_water", "protein", "body_fat"]:
             return PERCENTAGE
