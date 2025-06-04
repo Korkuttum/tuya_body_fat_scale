@@ -47,29 +47,56 @@
     },
     "entity": {
         "sensor": {
+            "user_id": {
+                "name": "Kullanıcı ID"
+            },
+            "name": {
+                "name": "İsim"
+            },
+            "birth_date": {
+                "name": "Doğum Tarihi"
+            },
+            "age": {
+                "name": "Yaş"
+            },
+            "gender": {
+                "name": "Cinsiyet"
+            },
+            "height": {
+                "name": "Boy"
+            },
             "weight": {
                 "name": "Ağırlık"
             },
-            "bmi": {
-                "name": "VKİ"
+            "resistance": {
+                "name": "Direnç"
             },
-            "body_fat": {
-                "name": "Vücut Yağı"
+            "last_measurement": {
+                "name": "Son Ölçüm"
+            },
+            "body_type": {
+                "name": "Vücut Tipi"
+            },
+            "fat_free_mass": {
+                "name": "Yağsız Kütle"
             },
             "body_water": {
                 "name": "Vücut Suyu"
             },
+            "body_score": {
+                "name": "Vücut Skoru"
+            },
             "bone_mass": {
                 "name": "Kemik Kütlesi"
-            },
-            "fat_free_mass": {
-                "name": "Yağsız Kütle"
             },
             "muscle_mass": {
                 "name": "Kas Kütlesi"
             },
             "protein": {
                 "name": "Protein"
+            },
+            "body_fat": {
+                "name": "Vücut Yağı"
             },
             "basal_metabolism": {
                 "name": "Bazal Metabolizma"
@@ -80,14 +107,8 @@
             "body_age": {
                 "name": "Vücut Yaşı"
             },
-            "body_type": {
-                "name": "Vücut Tipi"
-            },
-            "body_score": {
-                "name": "Vücut Skoru"
-            },
-            "last_measurement": {
-                "name": "Son Ölçüm"
+            "bmi": {
+                "name": "VKİ"
             }
         }
     }
