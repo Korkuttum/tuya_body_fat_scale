@@ -4,9 +4,9 @@
             "already_configured": "Cihaz zaten yapılandırılmış"
         },
         "error": {
-            "cannot_connect": "Tuya API'ye bağlanılamadı",
-            "invalid_auth": "Geçersiz kimlik bilgileri",
-            "no_users": "Tartıda kullanıcı bulunamadı",
+            "auth_failed": "Kimlik doğrulama başarısız oldu, lütfen kimlik bilgilerinizi kontrol edin",
+            "device_error": "Cihaz bulunamadı veya erişilemedi",
+            "unknown": "Beklenmeyen hata oluştu",
             "user_config_failed": "Kullanıcı yapılandırması başarısız",
             "invalid_date": "Geçersiz tarih formatı. GG.AA.YYYY kullanın",
             "invalid_age": "Geçersiz yaş aralığı (0-120 yaş arası olmalı)"
@@ -60,7 +60,11 @@
                 "name": "Yaş"
             },
             "gender": {
-                "name": "Cinsiyet"
+                "name": "Cinsiyet",
+                "state": {
+                    "Male": "Erkek",
+                    "Female": "Kadın"
+                }
             },
             "height": {
                 "name": "Boy"
@@ -75,7 +79,14 @@
                 "name": "Son Ölçüm"
             },
             "body_type": {
-                "name": "Vücut Tipi"
+                "name": "Vücut Tipi",
+                "state": {
+                    "Underweight": "Zayıf",
+                    "Normal": "Normal",
+                    "Overweight": "Kilolu",
+                    "Obese": "Obez",
+                    "Severely Obese": "Aşırı Obez"
+                }
             },
             "fat_free_mass": {
                 "name": "Yağsız Kütle"
