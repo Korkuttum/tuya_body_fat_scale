@@ -44,5 +44,72 @@
                 }
             }
         }
+    },
+    "entity": {
+        "sensor": {
+            "user_id": {
+                "name": "User ID"
+            },
+            "name": {
+                "name": "Name"
+            },
+            "birth_date": {
+                "name": "Birth Date"
+            },
+            "age": {
+                "name": "Age"
+            },
+            "gender": {
+                "name": "Gender"
+            },
+            "height": {
+                "name": "Height"
+            },
+            "weight": {
+                "name": "Weight"
+            },
+            "resistance": {
+                "name": "Resistance"
+            },
+            "last_measurement": {
+                "name": "Last Measurement"
+            },
+            "body_type": {
+                "name": "Body Type"
+            },
+            "fat_free_mass": {
+                "name": "Fat Free Mass"
+            },
+            "body_water": {
+                "name": "Body Water"
+            },
+            "body_score": {
+                "name": "Body Score"
+            },
+            "bone_mass": {
+                "name": "Bone Mass"
+            },
+            "muscle_mass": {
+                "name": "Muscle Mass"
+            },
+            "protein": {
+                "name": "Protein"
+            },
+            "body_fat": {
+                "name": "Body Fat"
+            },
+            "basal_metabolism": {
+                "name": "Basal Metabolism"
+            },
+            "visceral_fat": {
+                "name": "Visceral Fat"
+            },
+            "body_age": {
+                "name": "Body Age"
+            },
+            "bmi": {
+                "name": "BMI"
+            }
+        }
     }
 }
