@@ -79,7 +79,19 @@ class TuyaScaleConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if not self._available_users:
                     errors["base"] = "no_users"
                 else:
-                    self._config = user_input
+                    # Store scan interval in both data and options
+                    scan_interval = user_input[CONF_SCAN_INTERVAL]
+                    self._config = {
+                        CONF_ACCESS_ID: user_input[CONF_ACCESS_ID],
+                        CONF_ACCESS_KEY: user_input[CONF_ACCESS_KEY],
+                        CONF_DEVICE_ID: user_input[CONF_DEVICE_ID],
+                        CONF_REGION: user_input[CONF_REGION],
+                        CONF_SCAN_INTERVAL: scan_interval,
+                    }
+                    # Set initial options
+                    self.hass.config_entries.options = {
+                        CONF_SCAN_INTERVAL: scan_interval
+                    }
                     return await self.async_step_users()
 
             except Exception as err:
@@ -127,17 +139,17 @@ class TuyaScaleConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     errors[CONF_BIRTH_DATE] = "invalid_date"
 
                 if not errors:
+                    current_user = self._available_users[0]
                     # Add user to config
-                    user_id = user_input["user_id"]
-                    self._users[user_id] = {
+                    self._users[current_user["id"]] = {
                         "birth_date": user_input[CONF_BIRTH_DATE],
                         "gender": user_input[CONF_GENDER],
-                        "name": user_input["user_name"],
+                        "name": current_user["name"],
                     }
 
                     # Remove processed user
                     self._available_users = [
-                        u for u in self._available_users if u["id"] != user_id
+                        u for u in self._available_users if u["id"] != current_user["id"]
                     ]
 
                     if self._available_users:
@@ -147,7 +159,11 @@ class TuyaScaleConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     # All users processed, create entry
                     self._config[CONF_USERS] = self._users
                     return self.async_create_entry(
-                        title=f"Scale {self._config[CONF_DEVICE_ID]}", data=self._config
+                        title=f"Scale {self._config[CONF_DEVICE_ID]}", 
+                        data=self._config,
+                        options={
+                            CONF_SCAN_INTERVAL: self._config[CONF_SCAN_INTERVAL]
+                        }
                     )
 
             except Exception as err:
@@ -160,14 +176,15 @@ class TuyaScaleConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 step_id="users",
                 data_schema=vol.Schema(
                     {
-                        vol.Required("user_id", default=current_user["id"]): str,
-                        vol.Required("user_name", default=current_user["name"]): str,
                         vol.Required(CONF_BIRTH_DATE): str,
                         vol.Required(CONF_GENDER): vol.In(GENDER_OPTIONS),
                     }
                 ),
                 errors=errors,
-                description_placeholders={"user_name": current_user["name"]},
+                description_placeholders={
+                    "user_name": current_user["name"],
+                    "user_id": current_user["id"]
+                },
             )
 
     @staticmethod
