@@ -13,11 +13,9 @@
                 }
             },
             "users": {
-                "title": "Configure User: {user_name}",
-                "description": "Enter details for user {user_name}",
+                "title": "Configure User",
+                "description": "Enter details for user {user_name} (ID: {user_id})",
                 "data": {
-                    "user_id": "User ID",
-                    "user_name": "Name",
                     "birth_date": "Birth Date (DD.MM.YYYY)",
                     "gender": "Gender"
                 }
@@ -60,7 +58,11 @@
                 "name": "Age"
             },
             "gender": {
-                "name": "Gender"
+                "name": "Gender",
+                "state": {
+                    "Male": "Male",
+                    "Female": "Female"
+                }
             },
             "height": {
                 "name": "Height"
@@ -75,7 +77,14 @@
                 "name": "Last Measurement"
             },
             "body_type": {
-                "name": "Body Type"
+                "name": "Body Type",
+                "state": {
+                    "Underweight": "Underweight",
+                    "Normal": "Normal",
+                    "Overweight": "Overweight",
+                    "Obese": "Obese",
+                    "Severely Obese": "Severely Obese"
+                }
             },
             "fat_free_mass": {
                 "name": "Fat Free Mass"
