@@ -29,12 +29,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Create API instance
         api = TuyaScaleAPI(hass, dict(entry.data))
 
-        # Create update coordinator
+        # If this is first setup or migrating from old setup, ensure scan_interval is in options
+        if CONF_SCAN_INTERVAL in entry.data and not entry.options.get(CONF_SCAN_INTERVAL):
+            new_options = dict(entry.options)
+            new_options[CONF_SCAN_INTERVAL] = entry.data[CONF_SCAN_INTERVAL]
+            hass.config_entries.async_update_entry(entry, options=new_options)
+            _LOGGER.debug("Migrated scan_interval to options: %s", new_options)
+
+        # Create update coordinator with scan_interval from options
         coordinator = TuyaScaleDataUpdateCoordinator(
             hass,
             api,
             entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
-            entry,  # Pass the config_entry to coordinator
+            entry,
         )
 
         # Fetch initial data
@@ -67,4 +74,16 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Update listener."""
+    # Get the coordinator
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+    
+    # Update the update_interval
+    coordinator.update_interval = timedelta(
+        seconds=entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+    )
+    
+    # Trigger an immediate refresh
+    await coordinator.async_refresh()
+
+    # Reload the config entry to apply changes
     await hass.config_entries.async_reload(entry.entry_id)
