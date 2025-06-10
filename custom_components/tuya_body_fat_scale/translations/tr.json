@@ -25,13 +25,11 @@
             },
             "users": {
                 "data": {
-                    "user_id": "Kullanıcı ID",
-                    "user_name": "İsim",
                     "birth_date": "Doğum Tarihi (GG.AA.YYYY)",
                     "gender": "Cinsiyet"
                 },
-                "description": "Kullanıcı yapılandırması: {user_name}",
-                "title": "Kullanıcıları Yapılandır"
+                "description": "{user_name} (ID: {user_id}) kullanıcısı için bilgileri girin",
+                "title": "Kullanıcı Yapılandırması"
             }
         }
     },
@@ -120,6 +118,15 @@
             },
             "bmi": {
                 "name": "VKİ"
+            }
+        },
+        "select": {
+            "gender": {
+                "name": "Cinsiyet",
+                "options": {
+                    "Male": "Erkek",
+                    "Female": "Kadın"
+                }
             }
         }
     }
