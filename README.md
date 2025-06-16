@@ -26,9 +26,12 @@ This integration is designed to retrieve comprehensive body composition data fro
 Before using this integration, you must enable the Body Fat Scale API service in your Tuya IoT Platform account:
 
 1. Log in to [Tuya IoT Platform](https://developer.tuya.com/)
-2. Navigate to Cloud Development > Cloud Services
-3. Find and enable "Body Fat Scale" service
-4. Wait for the service activation to complete
+2. Go to **Cloud** > **Project Management**
+3. Click on **Open Project** (select your project)
+4. Navigate to **Service API** tab
+5. Click on **Go to Authorize** button on the right side
+6. Find and select **Body Fat Scale Open Service**
+7. Click **OK** to confirm and enable the service
 
 ⚠️ **Important**: The integration will not work without activating the Body Fat Scale service in your Tuya Cloud account, even if you have valid authentication credentials.
 
