@@ -19,9 +19,22 @@ This integration is designed to retrieve comprehensive body composition data fro
 - Multiple user support
 - Real-time measurements
 
-## Installation Methods
+## Prerequisites
+
+### Enable Tuya Cloud Service
+
+Before using this integration, you must enable the Body Fat Scale API service in your Tuya IoT Platform account:
+
+1. Log in to [Tuya IoT Platform](https://developer.tuya.com/)
+2. Navigate to Cloud Development > Cloud Services
+3. Find and enable "Body Fat Scale" service
+4. Wait for the service activation to complete
+
+⚠️ **Important**: The integration will not work without activating the Body Fat Scale service in your Tuya Cloud account, even if you have valid authentication credentials.
+
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Korkuttum&repository=tuya_body_fat_scale&category=integration)
+
 
 ### Method 1: HACS Installation (Recommended)
 1. Make sure you have [HACS](https://hacs.xyz/) installed in your Home Assistant instance.
