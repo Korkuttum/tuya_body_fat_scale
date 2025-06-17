@@ -222,10 +222,10 @@ class TuyaScaleAPI:
     def format_body_type(body_type: int) -> str:
         """Format body type value to string."""
         types = {
-            0: "Underweight",
-            1: "Normal",
-            2: "Overweight",
-            3: "Obese",
-            4: "Severely Obese"
+            0: "underweight",
+            1: "normal",
+            2: "overweight",
+            3: "obese",
+            4: "severely Obese"
         }
         return types.get(body_type, str(body_type))
