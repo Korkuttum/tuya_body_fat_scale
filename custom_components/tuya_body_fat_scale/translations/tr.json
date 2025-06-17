@@ -83,7 +83,7 @@
                     "normal": "Normal",
                     "overweight": "Kilolu",
                     "obese": "Obez",
-                    "severely Obese": "Aşırı Obez"
+                    "severely_obese": "Aşırı Obez"
                 }
             },
             "fat_free_mass": {
