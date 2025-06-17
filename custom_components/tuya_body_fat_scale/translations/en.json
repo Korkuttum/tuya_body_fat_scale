@@ -79,11 +79,11 @@
             "body_type": {
                 "name": "Body Type",
                 "state": {
-                    "Underweight": "Underweight",
-                    "Normal": "Normal",
-                    "Overweight": "Overweight",
-                    "Obese": "Obese",
-                    "Severely Obese": "Severely Obese"
+                    "underweight": "Underweight",
+                    "normal": "Normal",
+                    "overweight": "Overweight",
+                    "obese": "Obese",
+                    "severely Obese": "Severely Obese"
                 }
             },
             "fat_free_mass": {
