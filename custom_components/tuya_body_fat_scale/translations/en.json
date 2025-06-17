@@ -83,7 +83,7 @@
                     "normal": "Normal",
                     "overweight": "Overweight",
                     "obese": "Obese",
-                    "severely Obese": "Severely Obese"
+                    "severely_obese": "Severely Obese"
                 }
             },
             "fat_free_mass": {
