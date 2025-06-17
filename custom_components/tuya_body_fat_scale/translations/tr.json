@@ -79,11 +79,11 @@
             "body_type": {
                 "name": "Vücut Tipi",
                 "state": {
-                    "Underweight": "Zayıf",
-                    "Normal": "Normal",
-                    "Overweight": "Kilolu",
-                    "Obese": "Obez",
-                    "Severely Obese": "Aşırı Obez"
+                    "underweight": "Zayıf",
+                    "normal": "Normal",
+                    "overweight": "Kilolu",
+                    "obese": "Obez",
+                    "severely Obese": "Aşırı Obez"
                 }
             },
             "fat_free_mass": {
