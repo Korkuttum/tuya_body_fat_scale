@@ -226,6 +226,6 @@ class TuyaScaleAPI:
             1: "normal",
             2: "overweight",
             3: "obese",
-            4: "severely Obese"
+            4: "severely_obese"
         }
         return types.get(body_type, str(body_type))
