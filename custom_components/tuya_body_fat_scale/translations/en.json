@@ -60,8 +60,8 @@
             "gender": {
                 "name": "Gender",
                 "state": {
-                    "Male": "Male",
-                    "Female": "Female"
+                    "male": "Male",
+                    "female": "Female"
                 }
             },
             "height": {
