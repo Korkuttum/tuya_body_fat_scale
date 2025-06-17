@@ -35,8 +35,8 @@ GENDER_MALE = "M"
 GENDER_FEMALE = "F"
 
 GENDER_OPTIONS = {
-    GENDER_MALE: "Male",
-    GENDER_FEMALE: "Female"
+    GENDER_MALE: "male",
+    GENDER_FEMALE: "female"
 }
 
 # Sensor Types
