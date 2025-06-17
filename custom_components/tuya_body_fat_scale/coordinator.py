@@ -99,7 +99,7 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
                             "name": user_info.get("name", record.get("nick_name", "Unknown")),
                             "birth_date": user_info["birth_date"],
                             "age": age,
-                            "gender": "Male" if user_info["gender"] == "M" else "Female",
+                            "gender": "male" if user_info["gender"] == "M" else "female",
                             "height": height,
                             "weight": weight,
                             "resistance": resistance,
