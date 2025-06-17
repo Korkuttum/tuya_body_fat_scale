@@ -124,8 +124,8 @@
             "gender": {
                 "name": "Cinsiyet",
                 "options": {
-                    "Male": "Erkek",
-                    "Female": "Kadın"
+                    "male": "Erkek",
+                    "female": "Kadın"
                 }
             }
         }
