@@ -1,0 +1,124 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Tuya Body Fat Scale Setup",
+                "description": "Enter your Tuya IoT Platform credentials",
+                "data": {
+                    "access_id": "Access ID",
+                    "access_key": "Access Key",
+                    "device_id": "Device ID",
+                    "region": "Region",
+                    "scan_interval": "Update Interval (seconds)"
+                }
+            },
+            "users": {
+                "title": "Configure User",
+                "description": "Enter details for user {user_name} (ID: {user_id})",
+                "data": {
+                    "birth_date": "Birth Date (DD.MM.YYYY)",
+                    "gender": "Gender"
+                }
+            }
+        },
+        "error": {
+            "cannot_connect": "Failed to connect to Tuya API",
+            "invalid_auth": "Invalid authentication",
+            "no_users": "No users found on the scale",
+            "user_config_failed": "Failed to configure user",
+            "invalid_date": "Invalid date format. Use DD.MM.YYYY",
+            "invalid_age": "Invalid age range (must be between 0-120 years)"
+        },
+        "abort": {
+            "already_configured": "Device is already configured"
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Tuya Body Fat Scale Options",
+                "data": {
+                    "scan_interval": "Update Interval (seconds)"
+                }
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "user_id": {
+                "name": "User ID"
+            },
+            "name": {
+                "name": "Name"
+            },
+            "birth_date": {
+                "name": "Birth Date"
+            },
+            "age": {
+                "name": "Age"
+            },
+            "gender": {
+                "name": "Gender",
+                "state": {
+                    "male": "Male",
+                    "female": "Female"
+                }
+            },
+            "height": {
+                "name": "Height"
+            },
+            "weight": {
+                "name": "Weight"
+            },
+            "resistance": {
+                "name": "Resistance"
+            },
+            "last_measurement": {
+                "name": "Last Measurement"
+            },
+            "body_type": {
+                "name": "Body Type",
+                "state": {
+                    "underweight": "Underweight",
+                    "normal": "Normal",
+                    "overweight": "Overweight",
+                    "obese": "Obese",
+                    "severely_obese": "Severely Obese"
+                }
+            },
+            "fat_free_mass": {
+                "name": "Fat Free Mass"
+            },
+            "body_water": {
+                "name": "Body Water"
+            },
+            "body_score": {
+                "name": "Body Score"
+            },
+            "bone_mass": {
+                "name": "Bone Mass"
+            },
+            "muscle_mass": {
+                "name": "Muscle Mass"
+            },
+            "protein": {
+                "name": "Protein"
+            },
+            "body_fat": {
+                "name": "Body Fat"
+            },
+            "basal_metabolism": {
+                "name": "Basal Metabolism"
+            },
+            "visceral_fat": {
+                "name": "Visceral Fat"
+            },
+            "body_age": {
+                "name": "Body Age"
+            },
+            "bmi": {
+                "name": "BMI"
+            }
+        }
+    }
+}
