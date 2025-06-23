@@ -92,3 +92,5 @@ if __name__ == "__main__":
 
     print("\nAPI Response:")
     print(json.dumps(result, indent=2, ensure_ascii=False))
+
+    input("\nPress ENTER to exit...")
