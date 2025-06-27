@@ -1,13 +1,17 @@
 """DataUpdateCoordinator for the Tuya Body Fat Scale integration."""
+from __future__ import annotations
+
 import logging
 from datetime import datetime, timedelta
+
 import async_timeout
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
-from homeassistant.exceptions import ConfigEntryAuthFailed
 
 from .api import TuyaScaleAPI
 from .const import (
@@ -26,7 +30,7 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
         hass: HomeAssistant,
         api: TuyaScaleAPI,
         update_interval: int,
-        config_entry,
+        config_entry: ConfigEntry,
     ) -> None:
         """Initialize global Tuya Scale data updater."""
         self.api = api
@@ -45,32 +49,49 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self) -> dict:
         """Fetch data from Tuya Scale API."""
         try:
-            async with async_timeout.timeout(30):
+            async with async_timeout.timeout(60):  # Timeout süresini artırdık çünkü daha fazla sayfa çekeceğiz
                 _LOGGER.debug("Starting data update")
                 
-                # Get scale records
-                records = await self.api.get_scale_records()
-                _LOGGER.debug("Received records: %s", records)
+                # Get scale records from multiple pages
+                records = await self.api.get_scale_records(max_pages=5)  # 5 sayfa geriye gidelim
+                _LOGGER.debug("Received total records: %s", len(records.get("records", [])))
                 
                 # Process records
                 user_records = {}
+                seen_users = set()
+                
+                # Tüm kayıtları işle ve her kullanıcı için en son kaydı bul
                 for record in records.get("records", []):
                     user_id = record.get("user_id")
-                    if not user_id or user_id not in self.user_data:
+                    if not user_id:
                         continue
-
+                        
                     # API'den gelen timestamp'i kullan
                     current_timestamp = record.get("create_time", 0)
                     
-                    # Update only if this is a newer record
-                    if (user_id not in user_records or 
-                        current_timestamp > user_records[user_id].get("create_time", 0)):
+                    # Eğer bu kullanıcıyı ilk kez görüyorsak veya daha yeni bir kayıtsa
+                    if user_id not in seen_users:
+                        seen_users.add(user_id)
+                        user_records[user_id] = record
+                    elif current_timestamp > user_records[user_id].get("create_time", 0):
                         user_records[user_id] = record
 
                 # Get analysis reports for each user
                 results = {}
-                for user_id, record in user_records.items():
+                
+                # Tüm kayıtlı kullanıcılar için işlem yap
+                for user_id in self.user_data:
                     try:
+                        # Kullanıcı için kayıt var mı kontrol et
+                        if user_id in user_records:
+                            record = user_records[user_id]
+                            create_time = record.get("create_time", 0)
+                            _LOGGER.debug("Found data for user %s, timestamp: %s", 
+                                        user_id, self.api.format_datetime(create_time))
+                        else:
+                            _LOGGER.warning("No data found for user %s in any page", user_id)
+                            continue
+
                         user_info = self.user_data[user_id]
                         birth_date = datetime.strptime(user_info["birth_date"], "%d.%m.%Y")
                         age = (datetime.now() - birth_date).days // 365
@@ -117,9 +138,15 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
                             "body_age": report.get("body_age", 0),
                             "bmi": report.get("bmi", 0)
                         }
+                        
                         _LOGGER.debug("Processed data for user %s: %s", user_id, results[user_id])
                     except Exception as err:
                         _LOGGER.error("Error processing user %s: %s", user_id, str(err))
+
+                if not results:
+                    _LOGGER.warning("No data was processed for any user")
+                else:
+                    _LOGGER.debug("Successfully processed data for %d users", len(results))
 
                 return results
 
