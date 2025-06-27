@@ -195,10 +195,36 @@ class TuyaScaleAPI:
             _LOGGER.error("API request failed: %s", str(err))
             raise
 
-    async def get_scale_records(self, page_no: int = 1, page_size: int = 20) -> dict:
-        """Get scale records."""
-        path = f"/v1.0/scales/{self._device_id}/datas/history?page_no={page_no}&page_size={page_size}"
-        return await self._api_request("GET", path)
+    async def get_scale_records(self, max_pages: int = 5) -> dict:
+        """Get scale records from multiple pages."""
+        all_records = []
+        page_no = 1
+        page_size = 50  # Her sayfada daha fazla kayıt alalım
+
+        while page_no <= max_pages:
+            try:
+                path = f"/v1.0/scales/{self._device_id}/datas/history?page_no={page_no}&page_size={page_size}"
+                result = await self._api_request("GET", path)
+                
+                records = result.get("records", [])
+                _LOGGER.debug("Page %d: Found %d records", page_no, len(records))
+                
+                if not records:  # Eğer sayfa boşsa, daha fazla veri yok demektir
+                    break
+                    
+                all_records.extend(records)
+                
+                if len(records) < page_size:  # Eğer sayfa tam dolmadıysa, son sayfadayız
+                    break
+                    
+                page_no += 1
+                
+            except Exception as err:
+                _LOGGER.error("Error fetching page %d: %s", page_no, str(err))
+                break
+
+        _LOGGER.debug("Total records fetched: %d from %d pages", len(all_records), page_no)
+        return {"records": all_records}
 
     async def get_analysis_report(self, data: dict) -> dict:
         """Get body analysis report."""
