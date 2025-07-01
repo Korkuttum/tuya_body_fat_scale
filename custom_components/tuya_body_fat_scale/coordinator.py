@@ -1,17 +1,19 @@
-"""DataUpdateCoordinator for the Tuya Body Fat Scale integration."""
-from __future__ import annotations
+"""DataUpdateCoordinator for the Tuya Body Fat Scale integration.
 
+Last updated: 2025-07-01 06:58:28 by Korkuttum
+Changes:
+- Added resistance value processing to handle both decimal and integer formats
+- Added _process_resistance helper function
+"""
 import logging
 from datetime import datetime, timedelta
-
 import async_timeout
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
+from homeassistant.exceptions import ConfigEntryAuthFailed
 
 from .api import TuyaScaleAPI
 from .const import (
@@ -30,7 +32,7 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
         hass: HomeAssistant,
         api: TuyaScaleAPI,
         update_interval: int,
-        config_entry: ConfigEntry,
+        config_entry,
     ) -> None:
         """Initialize global Tuya Scale data updater."""
         self.api = api
@@ -46,52 +48,60 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
 
         _LOGGER.debug("Initialized coordinator with users: %s", self.user_data)
 
+    def _process_resistance(self, resistance_value: str) -> int:
+        """Process resistance value based on its format.
+        
+        Args:
+            resistance_value: The resistance value from the API as string
+            
+        Returns:
+            int: Processed resistance value
+            - If value < 1 (e.g., "0.756"), returns value * 1000
+            - If value >= 1 (e.g., "575"), returns value as is
+            - Returns 0 if value is invalid
+        """
+        try:
+            # String'i float'a çevir
+            resistance_float = float(resistance_value)
+            
+            # 1'den küçükse 1000 ile çarp
+            if resistance_float < 1:
+                return int(resistance_float * 1000)
+            # 1'den büyük veya eşitse direkt int'e çevir
+            return int(resistance_float)
+        except (ValueError, TypeError):
+            _LOGGER.warning("Invalid resistance value: %s", resistance_value)
+            return 0
+
     async def _async_update_data(self) -> dict:
         """Fetch data from Tuya Scale API."""
         try:
-            async with async_timeout.timeout(60):  # Timeout süresini artırdık çünkü daha fazla sayfa çekeceğiz
+            async with async_timeout.timeout(30):
                 _LOGGER.debug("Starting data update")
                 
-                # Get scale records from multiple pages
-                records = await self.api.get_scale_records(max_pages=5)  # 5 sayfa geriye gidelim
-                _LOGGER.debug("Received total records: %s", len(records.get("records", [])))
+                # Get scale records
+                records = await self.api.get_scale_records()
+                _LOGGER.debug("Received records: %s", records)
                 
                 # Process records
                 user_records = {}
-                seen_users = set()
-                
-                # Tüm kayıtları işle ve her kullanıcı için en son kaydı bul
                 for record in records.get("records", []):
                     user_id = record.get("user_id")
-                    if not user_id:
+                    if not user_id or user_id not in self.user_data:
                         continue
-                        
+
                     # API'den gelen timestamp'i kullan
                     current_timestamp = record.get("create_time", 0)
                     
-                    # Eğer bu kullanıcıyı ilk kez görüyorsak veya daha yeni bir kayıtsa
-                    if user_id not in seen_users:
-                        seen_users.add(user_id)
-                        user_records[user_id] = record
-                    elif current_timestamp > user_records[user_id].get("create_time", 0):
+                    # Update only if this is a newer record
+                    if (user_id not in user_records or 
+                        current_timestamp > user_records[user_id].get("create_time", 0)):
                         user_records[user_id] = record
 
                 # Get analysis reports for each user
                 results = {}
-                
-                # Tüm kayıtlı kullanıcılar için işlem yap
-                for user_id in self.user_data:
+                for user_id, record in user_records.items():
                     try:
-                        # Kullanıcı için kayıt var mı kontrol et
-                        if user_id in user_records:
-                            record = user_records[user_id]
-                            create_time = record.get("create_time", 0)
-                            _LOGGER.debug("Found data for user %s, timestamp: %s", 
-                                        user_id, self.api.format_datetime(create_time))
-                        else:
-                            _LOGGER.warning("No data found for user %s in any page", user_id)
-                            continue
-
                         user_info = self.user_data[user_id]
                         birth_date = datetime.strptime(user_info["birth_date"], "%d.%m.%Y")
                         age = (datetime.now() - birth_date).days // 365
@@ -100,11 +110,14 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
                         weight = record.get("weight", record.get("wegith", 0))
                         height = record.get("height", 170)  # varsayılan boy
                         resistance = record.get("resistance", record.get("body_r", 0))
+                        
+                        # Direnç değerini işle
+                        processed_resistance = self._process_resistance(resistance)
 
                         analysis_data = {
                             "height": height,
                             "weight": weight,
-                            "resistance": resistance,
+                            "resistance": processed_resistance,  # İşlenmiş değeri kullan
                             "age": age,
                             "sex": 1 if user_info["gender"] == "M" else 2
                         }
@@ -120,10 +133,10 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
                             "name": user_info.get("name", record.get("nick_name", "Unknown")),
                             "birth_date": user_info["birth_date"],
                             "age": age,
-                            "gender": "male" if user_info["gender"] == "M" else "female",
+                            "gender": "Male" if user_info["gender"] == "M" else "Female",
                             "height": height,
                             "weight": weight,
-                            "resistance": resistance,
+                            "resistance": processed_resistance,  # İşlenmiş değeri kullan
                             "last_measurement": self.api.format_datetime(record.get("create_time", 0)),
                             "body_type": self.api.format_body_type(report.get("body_type", 0)),
                             "fat_free_mass": report.get("ffm", 0),
@@ -138,15 +151,9 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
                             "body_age": report.get("body_age", 0),
                             "bmi": report.get("bmi", 0)
                         }
-                        
                         _LOGGER.debug("Processed data for user %s: %s", user_id, results[user_id])
                     except Exception as err:
                         _LOGGER.error("Error processing user %s: %s", user_id, str(err))
-
-                if not results:
-                    _LOGGER.warning("No data was processed for any user")
-                else:
-                    _LOGGER.debug("Successfully processed data for %d users", len(results))
 
                 return results
 
