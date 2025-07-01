@@ -1,4 +1,11 @@
-"""API client for Tuya Body Fat Scale."""
+"""API client for Tuya Body Fat Scale.
+
+Last updated: 2025-07-01 07:25:32 by Korkuttum
+
+Changes:
+- Fixed resistance value processing to handle both decimal and integer formats
+- Added pagination support for fetching historical records
+"""
 import logging
 import time
 import hmac
@@ -232,7 +239,7 @@ class TuyaScaleAPI:
         body = json.dumps({
             "height": int(data["height"]),
             "weight": float(data["weight"]),
-            "resistance": int(float(data["resistance"]) * 1000),
+            "resistance": int(data["resistance"]),  # Artık burada çarpmıyoruz
             "age": int(data["age"]),
             "sex": int(data["sex"])
         })
@@ -248,10 +255,10 @@ class TuyaScaleAPI:
     def format_body_type(body_type: int) -> str:
         """Format body type value to string."""
         types = {
-            0: "underweight",
-            1: "normal",
-            2: "overweight",
-            3: "obese",
-            4: "severely_obese"
+            0: "Underweight",
+            1: "Normal",
+            2: "Overweight",
+            3: "Obese",
+            4: "Severely Obese"
         }
         return types.get(body_type, str(body_type))
