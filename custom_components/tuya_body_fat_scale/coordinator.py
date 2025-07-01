@@ -1,9 +1,10 @@
 """DataUpdateCoordinator for the Tuya Body Fat Scale integration.
 
-Last updated: 2025-07-01 06:58:28 by Korkuttum
+Last updated: 2025-07-01 07:25:32 by Korkuttum
 Changes:
 - Added resistance value processing to handle both decimal and integer formats
 - Added _process_resistance helper function
+- Added support for pagination in data fetching
 """
 import logging
 from datetime import datetime, timedelta
@@ -79,8 +80,8 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
             async with async_timeout.timeout(30):
                 _LOGGER.debug("Starting data update")
                 
-                # Get scale records
-                records = await self.api.get_scale_records()
+                # Get scale records from multiple pages
+                records = await self.api.get_scale_records(max_pages=5)  # 5 sayfa veri alalım
                 _LOGGER.debug("Received records: %s", records)
                 
                 # Process records
