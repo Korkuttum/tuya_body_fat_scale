@@ -1,6 +1,6 @@
 """API client for Tuya Body Fat Scale.
 
-Last updated: 2025-07-02 10:39:46 by Korkuttum
+Last updated: 2025-07-02 11:49:22 by Korkuttum
 
 Changes:
 - Added timeout handling for API requests
@@ -8,6 +8,7 @@ Changes:
 - Added retry mechanism for failed requests
 - Added rate limiting control
 - Fixed error handling and logging
+- Added token refresh for unknown errors
 """
 import logging
 import time
@@ -248,8 +249,8 @@ class TuyaScaleAPI:
 
             if not result.get('success', False):
                 msg = result.get('msg', '')
-                if 'token' in msg.lower():
-                    _LOGGER.info("Token invalid, refreshing...")
+                if 'token' in msg.lower() or 'unknown error' in msg.lower():
+                    _LOGGER.info("Token invalid or unknown error, refreshing token...")
                     self._token = None
                     return await self._api_request(method, path, body)
                 raise Exception(f"API error: {msg}")
