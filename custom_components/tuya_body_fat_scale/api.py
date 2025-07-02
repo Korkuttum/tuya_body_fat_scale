@@ -1,18 +1,23 @@
 """API client for Tuya Body Fat Scale.
 
-Last updated: 2025-07-01 07:25:32 by Korkuttum
+Last updated: 2025-07-02 10:39:46 by Korkuttum
 
 Changes:
-- Fixed resistance value processing to handle both decimal and integer formats
-- Added pagination support for fetching historical records
+- Added timeout handling for API requests
+- Added detailed error messages
+- Added retry mechanism for failed requests
+- Added rate limiting control
+- Fixed error handling and logging
 """
 import logging
 import time
 import hmac
 import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
+import asyncio
 import requests
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
@@ -29,12 +34,55 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-def make_api_request(url: str, headers: dict, data: str = "") -> requests.Response:
-    """Make API request."""
+class APIRateLimiter:
+    """Rate limiter for API requests."""
+    def __init__(self, calls: int = 60, period: int = 60):
+        """Initialize rate limiter.
+        
+        Args:
+            calls: Maximum number of calls allowed in the period
+            period: Time period in seconds
+        """
+        self.calls = calls
+        self.period = period
+        self.requests = []
+
+    async def wait_if_needed(self):
+        """Check and wait if rate limit is exceeded."""
+        now = datetime.utcnow()
+        # Clean old requests
+        self.requests = [req_time for req_time in self.requests 
+                        if now - req_time < timedelta(seconds=self.period)]
+        
+        if len(self.requests) >= self.calls:
+            # Rate limit exceeded, waiting required
+            sleep_time = (self.requests[0] + timedelta(seconds=self.period) - now).total_seconds()
+            if sleep_time > 0:
+                _LOGGER.debug("Rate limit exceeded, waiting %s seconds", sleep_time)
+                await asyncio.sleep(sleep_time)
+        
+        self.requests.append(now)
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10)
+)
+def make_api_request(url: str, headers: dict, data: str = "", timeout: int = 10) -> requests.Response:
+    """Make API request with retry mechanism."""
     _LOGGER.debug("Making API request to %s with headers %s", url, headers)
-    if data:
-        return requests.post(url, headers=headers, data=data)
-    return requests.get(url, headers=headers)
+    try:
+        if data:
+            return requests.post(url, headers=headers, data=data, timeout=timeout)
+        return requests.get(url, headers=headers, timeout=timeout)
+    except requests.exceptions.Timeout:
+        _LOGGER.error("Request timeout for URL: %s", url)
+        raise
+    except requests.exceptions.ConnectionError:
+        _LOGGER.error("Connection error for URL: %s", url)
+        raise
+    except Exception as err:
+        _LOGGER.error("Unexpected error in API request: %s", str(err))
+        raise
 
 class TuyaScaleAPI:
     """Tuya Scale API client."""
@@ -48,6 +96,7 @@ class TuyaScaleAPI:
         self._api_endpoint = API_ENDPOINTS[config["region"]]
         self._token = None
         self._token_expires = 0
+        self._rate_limiter = APIRateLimiter()
 
     def _calculate_sign(self, t: str, path: str, access_token: str = None, body: str = "") -> str:
         """Generate signature for request."""
@@ -90,6 +139,8 @@ class TuyaScaleAPI:
     async def _get_token(self) -> None:
         """Get access token from Tuya."""
         try:
+            await self._rate_limiter.wait_if_needed()
+            
             t = str(int(time.time() * 1000))
             path = "/v1.0/token?grant_type=1"
             sign = self._calculate_sign(t, path)
@@ -141,8 +192,10 @@ class TuyaScaleAPI:
             raise
 
     async def _api_request(self, method: str, path: str, body: str = "") -> dict:
-        """Make API request."""
+        """Make API request with improved error handling."""
         try:
+            await self._rate_limiter.wait_if_needed()
+
             if not self._token or time.time() >= self._token_expires:
                 await self._get_token()
 
@@ -187,7 +240,12 @@ class TuyaScaleAPI:
             if response.status_code != 200:
                 raise Exception(f"HTTP error {response.status_code}")
             
-            result = response.json()
+            try:
+                result = response.json()
+            except json.JSONDecodeError:
+                _LOGGER.error("Invalid JSON response from API: %s", response.text)
+                raise Exception("Invalid JSON response from API")
+
             if not result.get('success', False):
                 msg = result.get('msg', '')
                 if 'token' in msg.lower():
@@ -198,6 +256,12 @@ class TuyaScaleAPI:
             
             return result["result"]
             
+        except requests.exceptions.Timeout:
+            _LOGGER.error("API request timed out: %s", url)
+            raise Exception("API request timed out")
+        except requests.exceptions.ConnectionError:
+            _LOGGER.error("Connection error occurred: %s", url)
+            raise Exception("Connection error occurred")
         except Exception as err:
             _LOGGER.error("API request failed: %s", str(err))
             raise
@@ -206,7 +270,7 @@ class TuyaScaleAPI:
         """Get scale records from multiple pages."""
         all_records = []
         page_no = 1
-        page_size = 50  # Her sayfada daha fazla kayıt alalım
+        page_size = 50
 
         while page_no <= max_pages:
             try:
@@ -216,12 +280,12 @@ class TuyaScaleAPI:
                 records = result.get("records", [])
                 _LOGGER.debug("Page %d: Found %d records", page_no, len(records))
                 
-                if not records:  # Eğer sayfa boşsa, daha fazla veri yok demektir
+                if not records:
                     break
                     
                 all_records.extend(records)
                 
-                if len(records) < page_size:  # Eğer sayfa tam dolmadıysa, son sayfadayız
+                if len(records) < page_size:
                     break
                     
                 page_no += 1
@@ -239,7 +303,7 @@ class TuyaScaleAPI:
         body = json.dumps({
             "height": int(data["height"]),
             "weight": float(data["weight"]),
-            "resistance": int(data["resistance"]),  # Artık burada çarpmıyoruz
+            "resistance": int(data["resistance"]),
             "age": int(data["age"]),
             "sex": int(data["sex"])
         })
