@@ -1,6 +1,6 @@
 # Tuya Body Fat Scale Custom Integration for Home Assistant
 
-<img src="https://iis-akakce.akamaized.net/p.z?%2F%2Fproductimages%2Ehepsiburada%2Enet%2Fs%2F45%2F600%2F10824497070130%2Ejpg" alt="Smart Scale" width="200"/> <img src="https://image.made-in-china.com/2f0j00aMhREsrtVIbv/Tuya-Smart-Body-Weighing-Scales.webp" alt="Smart Scale" width="200"/> <img src="https://www.expert4house.com/img/cms/Tuya%20Smart%20Home/Tuya%20Bilancia%20del%20Grasso%20Corporeo%20BMI%20Smart%20WiFi%20con%20Display%20Digitale%20a%20LED.jpg" alt="Smart Scale" width="200"/>
+<img src="https://iis-akakce.akamaized.net/p.z?%2F%2Fproductimages%2Ehepsiburada%2Enet%2Fs%2F45%2F600%2F10824497070130%2Ejpg" alt="Smart Scale" width="200"/> <img src="https://image.made-in-china.com/2f0j00aMhREsrtVIbv/Tuya-Smart-Body-Weighing-Scales.webp" alt="Smart Scale" width="200"/>
 
 This integration is designed to retrieve comprehensive body composition data from Tuya-based smart scales that support body fat and other advanced measurements. It provides detailed analytics beyond just weight, making it more advanced than the basic scale support in the official Tuya integration.
 
