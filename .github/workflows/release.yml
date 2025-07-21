@@ -1,0 +1,24 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release-zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: ZIP Component Dir
+        run: |
+          cd ${{ github.workspace }}/custom_components/tuya_body_fat_scale
+          zip -r tuya_body_fat_scale.zip ./
+      - name: Upload zip to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.PAT_TOKEN }}
+          file: ${{ github.workspace }}/custom_components/tuya_body_fat_scale/tuya_body_fat_scale.zip
+          asset_name: tuya_body_fat_scale.zip
+          tag: ${{ github.ref }}
+          overwrite: true
