@@ -9,7 +9,8 @@
                     "access_key": "Access Key",
                     "device_id": "Device ID",
                     "region": "Region",
-                    "scan_interval": "Update Interval (seconds)"
+                    "scan_interval": "Update Interval (seconds)",
+                    "api_error_notification": "Show API error notifications"
                 }
             },
             "users": {
@@ -38,7 +39,8 @@
             "init": {
                 "title": "Tuya Body Fat Scale Options",
                 "data": {
-                    "scan_interval": "Update Interval (seconds)"
+                    "scan_interval": "Update Interval (seconds)",
+                    "api_error_notification": "Show API error notifications"
                 }
             }
         }
