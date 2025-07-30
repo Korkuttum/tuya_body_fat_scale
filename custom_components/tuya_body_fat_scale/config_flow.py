@@ -26,6 +26,7 @@ from .const import (
     ERROR_AUTH,
     ERROR_DEVICE,
     ERROR_UNKNOWN,
+    CONF_API_ERROR_NOTIFICATION,  # eklendi
 )
 from .api import TuyaScaleAPI
 
@@ -79,18 +80,21 @@ class TuyaScaleConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if not self._available_users:
                     errors["base"] = "no_users"
                 else:
-                    # Store scan interval in both data and options
+                    # Store scan interval and notification in both data and options
                     scan_interval = user_input[CONF_SCAN_INTERVAL]
+                    api_error_notification = user_input.get(CONF_API_ERROR_NOTIFICATION, True)
                     self._config = {
                         CONF_ACCESS_ID: user_input[CONF_ACCESS_ID],
                         CONF_ACCESS_KEY: user_input[CONF_ACCESS_KEY],
                         CONF_DEVICE_ID: user_input[CONF_DEVICE_ID],
                         CONF_REGION: user_input[CONF_REGION],
                         CONF_SCAN_INTERVAL: scan_interval,
+                        CONF_API_ERROR_NOTIFICATION: api_error_notification,
                     }
                     # Set initial options
                     self.hass.config_entries.options = {
-                        CONF_SCAN_INTERVAL: scan_interval
+                        CONF_SCAN_INTERVAL: scan_interval,
+                        CONF_API_ERROR_NOTIFICATION: api_error_notification,
                     }
                     return await self.async_step_users()
 
@@ -112,6 +116,7 @@ class TuyaScaleConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(
                         vol.Coerce(int), vol.Range(min=60)
                     ),
+                    vol.Required(CONF_API_ERROR_NOTIFICATION, default=True): bool,  # seçenek eklendi
                 }
             ),
             errors=errors,
@@ -162,7 +167,8 @@ class TuyaScaleConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         title=f"Scale {self._config[CONF_DEVICE_ID]}", 
                         data=self._config,
                         options={
-                            CONF_SCAN_INTERVAL: self._config[CONF_SCAN_INTERVAL]
+                            CONF_SCAN_INTERVAL: self._config[CONF_SCAN_INTERVAL],
+                            CONF_API_ERROR_NOTIFICATION: self._config.get(CONF_API_ERROR_NOTIFICATION, True),
                         }
                     )
 
@@ -217,6 +223,10 @@ class TuyaScaleOptionsFlow(config_entries.OptionsFlow):
                     CONF_SCAN_INTERVAL,
                     default=options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
                 ): vol.All(vol.Coerce(int), vol.Range(min=60)),
+                vol.Required(
+                    CONF_API_ERROR_NOTIFICATION,
+                    default=options.get(CONF_API_ERROR_NOTIFICATION, True)
+                ): bool,
             }
         )
 
