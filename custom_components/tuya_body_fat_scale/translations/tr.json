@@ -18,7 +18,8 @@
                     "access_key": "Erişim Anahtarı",
                     "device_id": "Cihaz ID",
                     "region": "Bölge",
-                    "scan_interval": "Güncelleme Aralığı (saniye)"
+                    "scan_interval": "Güncelleme Aralığı (saniye)",
+                    "api_error_notification": "API hata bildirimlerini göster"
                 },
                 "description": "Tuya IoT Platform kimlik bilgilerinizi girin",
                 "title": "Tuya Akıllı Tartı Kurulumu"
@@ -37,7 +38,8 @@
         "step": {
             "init": {
                 "data": {
-                    "scan_interval": "Güncelleme Aralığı (saniye)"
+                    "scan_interval": "Güncelleme Aralığı (saniye)",
+                    "api_error_notification": "API hata bildirimlerini göster"
                 },
                 "title": "Tuya Akıllı Tartı Seçenekleri"
             }
