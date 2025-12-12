@@ -60,11 +60,7 @@
                 "name": "Age"
             },
             "gender": {
-                "name": "Gender",
-                "state": {
-                    "male": "Male",
-                    "female": "Female"
-                }
+                "name": "Gender"
             },
             "height": {
                 "name": "Height"
@@ -79,14 +75,7 @@
                 "name": "Last Measurement"
             },
             "body_type": {
-                "name": "Body Type",
-                "state": {
-                    "underweight": "Underweight",
-                    "normal": "Normal",
-                    "overweight": "Overweight",
-                    "obese": "Obese",
-                    "severely_obese": "Severely Obese"
-                }
+                "name": "Body Type"
             },
             "fat_free_mass": {
                 "name": "Fat Free Mass"
@@ -120,6 +109,32 @@
             },
             "bmi": {
                 "name": "BMI"
+            }
+        },
+        "button": {
+            "refresh": {
+                "name": "Refresh Data"
+            }
+        }
+    },
+    "state": {
+        "sensor": {
+            "gender": {
+                "male": "Male",
+                "female": "Female"
+            },
+            "body_type": {
+                "underweight": "Underweight",
+                "normal": "Normal",
+                "overweight": "Overweight",
+                "obese": "Obese",
+                "severely_obese": "Severely Obese"
+            }
+        },
+        "select": {
+            "gender": {
+                "male": "Male",
+                "female": "Female"
             }
         }
     }
