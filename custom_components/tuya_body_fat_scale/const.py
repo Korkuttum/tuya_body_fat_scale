@@ -13,6 +13,8 @@ CONF_SCAN_INTERVAL = "scan_interval"
 CONF_USER_ID = "user_id"
 CONF_API_ERROR_NOTIFICATION = "api_error_notification"  # <-- eklendi
 
+BUTTON_REFRESH = "refresh_data"
+
 # Configuration Defaults
 DEFAULT_SCAN_INTERVAL = 300  # 5 minutes
 
