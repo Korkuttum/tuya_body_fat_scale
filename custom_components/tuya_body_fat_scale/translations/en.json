@@ -121,6 +121,20 @@
             "bmi": {
                 "name": "BMI"
             }
+        },
+        "button": {
+            "refresh": {
+                "name": "Refresh Data"
+            }
+        },
+        "select": {
+            "gender": {
+                "name": "Gender",
+                "options": {
+                    "male": "Male",
+                    "female": "Female"
+                }
+            }
         }
     }
 }
