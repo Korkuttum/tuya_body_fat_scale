@@ -8,5 +8,6 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/Korkuttum/tuya_body_fat_scale/issues",
   "requirements": ["requests>=2.25.0"],
-  "version": "1.2.1"
+  "version": "1.2.2"
 }
+
