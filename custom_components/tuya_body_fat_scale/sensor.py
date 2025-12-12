@@ -174,8 +174,12 @@ class TuyaScaleSensor(CoordinatorEntity, SensorEntity):
                     return None
                 except (ValueError, TypeError):
                     return None
-                
+            
+            # Gender ve body_type translation key'lerini döndür
+            # Coordinator artık "male"/"female" ve "underweight"/"normal" gibi key'ler döndürüyor
+            # Bu yüzden direkt value'yu döndürebiliriz
             return value
+            
         except Exception as err:
             _LOGGER.error(
                 "Error getting value for sensor %s (user %s): %s",
