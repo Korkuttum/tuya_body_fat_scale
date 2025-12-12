@@ -122,6 +122,11 @@
                 "name": "VKİ"
             }
         },
+        "button": {
+            "refresh": {
+                "name": "Verileri Yenile"
+            }
+        },
         "select": {
             "gender": {
                 "name": "Cinsiyet",
