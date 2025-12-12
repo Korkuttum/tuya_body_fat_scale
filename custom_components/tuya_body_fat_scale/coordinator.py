@@ -63,6 +63,17 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.warning("Invalid resistance value: %s", resistance_value)
             return 0
 
+    def _format_body_type_key(self, body_type: int) -> str:
+        """Format body type as translation key (lowercase)."""
+        types = {
+            0: "underweight",
+            1: "normal", 
+            2: "overweight",
+            3: "obese",
+            4: "severely_obese"
+        }
+        return types.get(body_type, "normal")
+
     async def _async_update_data(self) -> dict:
         try:
             async with async_timeout.timeout(30):
@@ -109,12 +120,12 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
                             "name": user_info.get("name", record.get("nick_name", "Unknown")),
                             "birth_date": user_info["birth_date"],
                             "age": age,
-                            "gender": "Male" if user_info["gender"] == "M" else "Female",
+                            "gender": "male" if user_info["gender"] == "M" else "female",  # DEĞİŞTİ: küçük harf
                             "height": height,
                             "weight": weight,
                             "resistance": processed_resistance,
                             "last_measurement": self.api.format_datetime(record.get("create_time", 0)),
-                            "body_type": self.api.format_body_type(report.get("body_type", 0)),
+                            "body_type": self._format_body_type_key(report.get("body_type", 0)),  # DEĞİŞTİ: key format
                             "fat_free_mass": report.get("ffm", 0),
                             "body_water": report.get("water", 0),
                             "body_score": report.get("body_score", 0),
