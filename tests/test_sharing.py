@@ -225,3 +225,120 @@ def test_current_sdk_version_is_quiet(monkeypatch, caplog):
     monkeypatch.setattr(sharing.importlib.metadata, "version", lambda name: "0.2.15")
     sharing.warn_if_old_sdk()
     assert "older than" not in caplog.text
+
+
+# -- re-authentication, Repairs issues and push activity ---------------------------------
+
+from unittest.mock import patch  # noqa: E402
+
+from homeassistant.helpers import issue_registry as ir  # noqa: E402
+from tuya_sharing.exceptions import ApiRequestException  # noqa: E402
+
+
+def issue(hass, entry, kind):
+    return ir.async_get(hass).async_get_issue(DOMAIN, f"{kind}_{entry.entry_id}")
+
+
+def rejecting(session, code, listener):
+    raise ApiRequestException(error_code="1010", error_message="token invalid")
+
+
+async def force_retry(client):
+    client._next_attempt = 0
+    await client._async_health_check()
+
+
+async def test_repeated_api_rejections_ask_for_reauth(hass, entry, monkeypatch):
+    clock = [1000.0]
+    monkeypatch.setattr(sharing.time, "monotonic", lambda: clock[0])
+    client = sharing.ScaleSharingClient(hass, entry, lambda: None, lambda c: None, manager_factory=rejecting)
+    with patch("homeassistant.config_entries.ConfigEntry.async_start_reauth") as start:
+        await client.async_start()
+        await force_retry(client)
+        await force_retry(client)
+        start.assert_not_called()  # three rejections, but all within the same minute: maybe a hiccup
+        clock[0] += 599
+        await force_retry(client)
+        start.assert_not_called()
+        clock[0] += 2  # now they span more than ten minutes
+        await force_retry(client)
+        start.assert_called_once()
+        assert start.call_args.kwargs["context"] == {"reauth_target": "session"}
+        assert issue(hass, entry, "session_expired") is not None
+        await force_retry(client)
+        start.assert_called_once()  # asked only once per outage
+    await client.async_stop()
+
+
+async def test_a_successful_connect_resets_the_rejection_count(hass, entry, monkeypatch):
+    clock = [1000.0]
+    monkeypatch.setattr(sharing.time, "monotonic", lambda: clock[0])
+    outcomes = iter([rejecting, rejecting, lambda s, c, l: FakeManager(), rejecting, rejecting])
+    client = sharing.ScaleSharingClient(
+        hass, entry, lambda: None, lambda c: None,
+        manager_factory=lambda s, c, listener: next(outcomes)(s, c, listener),
+    )
+    with patch("homeassistant.config_entries.ConfigEntry.async_start_reauth") as start:
+        await client.async_start()  # rejected
+        await force_retry(client)  # rejected
+        await force_retry(client)  # connects: counters reset
+        client._manager = None  # pretend the connection was lost again
+        clock[0] += 5000
+        await force_retry(client)  # rejected (first of a new run)
+        await force_retry(client)  # rejected
+        start.assert_not_called()
+    await client.async_stop()
+
+
+async def test_network_errors_do_not_ask_for_reauth(hass, entry):
+    def offline(session, code, listener):
+        raise OSError("network is down")
+
+    client = sharing.ScaleSharingClient(hass, entry, lambda: None, lambda c: None, manager_factory=offline)
+    with patch("homeassistant.config_entries.ConfigEntry.async_start_reauth") as start:
+        await client.async_start()
+        for _ in range(5):
+            await force_retry(client)
+        start.assert_not_called()
+    assert issue(hass, entry, "session_expired") is None
+    await client.async_stop()
+
+
+async def test_successful_connect_clears_issues(hass, entry):
+    attempts = iter([rejecting, lambda s, c, listener: FakeManager()])
+    client = sharing.ScaleSharingClient(
+        hass, entry, lambda: None, lambda c: None,
+        manager_factory=lambda s, c, listener: next(attempts)(s, c, listener),
+    )
+    client._create_issue("session_expired", ir.IssueSeverity.ERROR)
+    assert issue(hass, entry, "session_expired") is not None
+    await client.async_start()  # rejected: the issue stays
+    assert issue(hass, entry, "session_expired") is not None
+    await force_retry(client)  # connects
+    assert issue(hass, entry, "session_expired") is None
+    await client.async_stop()
+
+
+async def test_device_missing_creates_issue(hass, entry):
+    client = make_client(hass, entry, [FakeManager(devices=("other",))], [])
+    await client.async_start()
+    assert issue(hass, entry, "device_not_in_account") is not None
+    await client.async_stop()
+
+
+async def test_any_scale_message_counts_as_activity(hass, entry):
+    seen = []
+    mgr = FakeManager()
+    client = sharing.ScaleSharingClient(
+        hass, entry, lambda: seen.append("measurement"), lambda c: None,
+        manager_factory=lambda s, c, listener: mgr, on_activity=lambda: seen.append("activity"),
+    )
+    await client.async_start()
+    mgr.mq.listeners[0](msg(status=[{"dpId": 109, "value": True}]))  # battery only
+    mgr.mq.listeners[0](msg(dev="other", status=[{"dpId": 103, "value": 1}]))  # another device
+    await hass.async_block_till_done()
+    assert seen == ["activity"]
+    mgr.mq.listeners[0](msg(status=[{"dpId": 103, "value": 70500}]))
+    await hass.async_block_till_done()
+    assert seen == ["activity", "activity", "measurement"]
+    await client.async_stop()

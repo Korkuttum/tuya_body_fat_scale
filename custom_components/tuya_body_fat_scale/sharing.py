@@ -34,6 +34,7 @@ from .const import (
     REAUTH_SESSION,
     REAUTH_TARGET,
     SESSION_REAUTH_AFTER_FAILURES,
+    SESSION_REAUTH_AFTER_SECONDS,
     CONF_DEVICE_ID,
     CONF_SESSION,
     CONF_USER_CODE,
@@ -142,6 +143,7 @@ class ScaleSharingClient:
         self._on_activity = on_activity
         self._seen_client: Any = None
         self._api_rejections = 0
+        self._first_rejection = 0.0
         self._reauth_started = False
         self._manager_factory = manager_factory
         self._device_id: str = entry.data[CONF_DEVICE_ID]
@@ -232,8 +234,14 @@ class ScaleSharingClient:
             if isinstance(err, ApiRequestException):
                 # Tuya answered but refused: the QR session is most likely expired/revoked.
                 # Network errors are not counted, they say nothing about the session.
+                now = time.monotonic()
+                if self._api_rejections == 0:
+                    self._first_rejection = now
                 self._api_rejections += 1
-                if self._api_rejections >= SESSION_REAUTH_AFTER_FAILURES:
+                if (
+                    self._api_rejections >= SESSION_REAUTH_AFTER_FAILURES
+                    and now - self._first_rejection >= SESSION_REAUTH_AFTER_SECONDS
+                ):
                     self._start_reauth()
             self._schedule_backoff()
         finally:

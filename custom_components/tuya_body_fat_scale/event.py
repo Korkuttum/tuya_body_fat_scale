@@ -73,5 +73,4 @@ class TuyaScaleWeighedEvent(CoordinatorEntity, EventEntity):
             self._last_ts = ts
             data = self.coordinator.data[self._user_id]
             self._trigger_event(EVENT_WEIGHED, {k: data.get(k) for k in EVENT_DATA_KEYS})
-            return  # _trigger_event already wrote the state
-        super()._handle_coordinator_update()
+        super()._handle_coordinator_update()  # writes the state

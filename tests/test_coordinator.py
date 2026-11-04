@@ -22,8 +22,12 @@ class FakeApi:
         self.calls = 0
         self.pages = []
         self.reports = 0
+        self.analysis_data = None
+        self.error = None
 
     async def get_scale_records(self, max_pages=5):
+        if self.error:
+            raise self.error
         self.pages.append(max_pages)
         idx = min(self.calls, len(self.seq) - 1)
         self.calls += 1
@@ -31,6 +35,7 @@ class FakeApi:
 
     async def get_analysis_report(self, data):
         self.reports += 1
+        self.analysis_data = data
         return {"fat": 20.0, "body_type": 1}
 
     @staticmethod
@@ -128,3 +133,68 @@ async def test_fallback_interval_is_capped_when_push_is_configured(hass):
     assert c.update_interval == timedelta(seconds=3600)
     c.set_push_connected(True)
     assert c.update_interval == timedelta(seconds=MQTT_FALLBACK_INTERVAL)
+
+
+def make_with_users(hass, api, users, options=None):
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_USERS: users}, options=options or {})
+    entry.add_to_hass(hass)
+    return TuyaScaleDataUpdateCoordinator(hass, api, 300, entry)
+
+
+async def test_saved_height_replaces_null_height(hass):
+    bad = record(2000)
+    bad["height"] = "null"
+    api = FakeApi([[bad]])
+    users = {"u1": {**USERS["u1"], "height": 178}}
+    c = make_with_users(hass, api, users)
+    await c.async_refresh()
+    assert api.analysis_data["height"] == 178
+    assert c.data["u1"]["height"] == 178
+
+
+async def test_record_height_wins_over_saved_height(hass):
+    api = FakeApi([[record(2000)]])
+    users = {"u1": {**USERS["u1"], "height": 178}}
+    c = make_with_users(hass, api, users)
+    await c.async_refresh()
+    assert api.analysis_data["height"] == 175
+
+
+async def test_missing_height_key_keeps_old_default(hass):
+    rec = record(2000)
+    del rec["height"]
+    c = make_with_users(hass, FakeApi([[rec]]), USERS)
+    await c.async_refresh()
+    assert c.data["u1"]["height"] == 170
+
+
+async def test_result_carries_measurement_time(hass):
+    c = make(hass, FakeApi([[record(2000)]]))
+    await c.async_refresh()
+    assert c.data["u1"]["measured_at_ms"] == 2000
+
+
+async def test_quota_error_raises_and_clears_repairs_issue(hass):
+    from homeassistant.helpers import issue_registry as ir
+
+    api = FakeApi([[record(1000)]])
+    c = make_with_users(hass, api, USERS, options={"api_error_notification": False})
+    issue_id = f"api_quota_exhausted_{c.config_entry.entry_id}"
+    api.error = Exception("IoT Core trial quota is exhausted.")
+    await c.async_refresh()
+    assert not c.last_update_success
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is not None
+    api.error = None
+    await c.async_refresh()
+    assert c.last_update_success
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is None
+
+
+async def test_other_errors_do_not_create_quota_issue(hass):
+    from homeassistant.helpers import issue_registry as ir
+
+    api = FakeApi([[record(1000)]])
+    c = make_with_users(hass, api, USERS, options={"api_error_notification": False})
+    api.error = Exception("Connection reset")
+    await c.async_refresh()
+    assert ir.async_get(hass).async_get_issue(DOMAIN, f"api_quota_exhausted_{c.config_entry.entry_id}") is None

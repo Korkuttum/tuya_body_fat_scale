@@ -38,6 +38,7 @@ MQTT_MAX_RESTART_BACKOFF = 300
 MQTT_DOWN_MAX_INTERVAL = 3600  # while push is down, poll at least this often
 SDK_RECOMMENDED_VERSION = (0, 2, 15)  # first SDK with its own robust MQTT reconnect
 SESSION_REAUTH_AFTER_FAILURES = 3  # consecutive API rejections before asking for a new QR login
+SESSION_REAUTH_AFTER_SECONDS = 600  # ...and they must span this long (rides out short Tuya hiccups)
 REAUTH_TARGET = "reauth_target"  # flow context key: "session" (QR) or "api" (Access ID/Key)
 REAUTH_SESSION = "session"
 REAUTH_API = "api"
