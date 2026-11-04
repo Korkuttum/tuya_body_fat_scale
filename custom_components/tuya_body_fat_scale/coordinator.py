@@ -130,6 +130,9 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
         self.update_interval = (
             timedelta(seconds=MQTT_FALLBACK_INTERVAL) if connected else self._fallback_interval()
         )
+        if self._listeners:
+            # the pending timer was set with the old interval
+            self._schedule_refresh()
         if connected and not was_connected:
             # catch up on anything missed while the push connection was down
             self.resync()
@@ -146,7 +149,15 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
 
     def resync(self) -> None:
         """Fetch once to catch up on measurements a push gap may have swallowed."""
-        self.hass.async_create_task(self.async_request_refresh())
+        self.hass.async_create_task(self._async_refresh_recent())
+
+    async def _async_refresh_recent(self) -> None:
+        """Refresh from the newest page of records only (cheap: one API call)."""
+        self._max_pages = 1
+        try:
+            await self.async_refresh()
+        finally:
+            self._max_pages = 5
 
     def handle_measurement(self) -> None:
         """A push message says the scale reported something; refresh after it settles."""
@@ -158,11 +169,7 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
         await asyncio.sleep(MQTT_DEBOUNCE_SECONDS)
         for attempt in range(MQTT_RETRIES + 1):
             before = self._latest_ts
-            self._max_pages = 1
-            try:
-                await self.async_refresh()
-            finally:
-                self._max_pages = 5
+            await self._async_refresh_recent()
             if self._latest_ts > before:
                 return
             if attempt < MQTT_RETRIES:
@@ -197,9 +204,9 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
                         user_records[user_id] = record
 
                 results = {}
-                newest = max(
-                    (r.get("create_time", 0) for r in user_records.values()), default=0
-                )
+                # newest record of anybody, also of users that are not set up: a weighing of
+                # theirs must end the retries after a push message as well
+                newest = max((r.get("create_time", 0) for r in records.get("records", [])), default=0)
                 for user_id, record in user_records.items():
                     try:
                         user_info = self.user_data[user_id]
@@ -255,6 +262,11 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
                         _LOGGER.debug("Processed data for user %s: %s", user_id, results[user_id])
                     except Exception as err:
                         _LOGGER.error("Error processing user %s: %s", user_id, str(err))
+
+                # a user missing from this fetch (short page, failed analysis) keeps the last values
+                for user_id, previous in (self._last_success_data or {}).items():
+                    if user_id in self.user_data:
+                        results.setdefault(user_id, previous)
 
                 self._latest_ts = max(self._latest_ts, newest)
                 self._last_success_data = results

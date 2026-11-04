@@ -153,6 +153,7 @@ class ScaleSharingClient:
         self._failures = 0
         self._next_attempt = 0.0
         self._busy = False
+        self._stopped = False
         self._unsub: CALLBACK_TYPE | None = None
 
     @property
@@ -161,6 +162,7 @@ class ScaleSharingClient:
 
     async def async_start(self) -> None:
         """Start listening. Never raises: failures fall back to polling."""
+        self._stopped = False
         await self.hass.async_add_executor_job(warn_if_old_sdk)
         await self._async_connect()
         self._unsub = async_track_time_interval(
@@ -168,6 +170,7 @@ class ScaleSharingClient:
         )
 
     async def async_stop(self) -> None:
+        self._stopped = True
         if self._unsub:
             self._unsub()
             self._unsub = None
@@ -196,7 +199,11 @@ class ScaleSharingClient:
         # refresh_mq only subscribes to devices flagged set_up; subscribe to the scale only.
         device.set_up = True
         manager.refresh_mq()
-        manager.mq.add_message_listener(self._handle_message)
+        try:
+            manager.mq.add_message_listener(self._handle_message)
+        except Exception:
+            self._stop_manager(manager)  # don't leave the MQTT thread running
+            raise
         return manager
 
     @staticmethod
@@ -208,7 +215,7 @@ class ScaleSharingClient:
             _LOGGER.debug("Error stopping MQTT", exc_info=True)
 
     async def _async_connect(self) -> None:
-        if self._busy:
+        if self._busy or self._stopped:
             return
         self._busy = True
         try:
@@ -216,7 +223,12 @@ class ScaleSharingClient:
             self._seen_client = None
             if old is not None:
                 await self.hass.async_add_executor_job(self._stop_manager, old)
-            self._manager = await self.hass.async_add_executor_job(self._connect_blocking)
+            manager = await self.hass.async_add_executor_job(self._connect_blocking)
+            if self._stopped:
+                # unloaded while connecting: nothing may keep running
+                await self.hass.async_add_executor_job(self._stop_manager, manager)
+                return
+            self._manager = manager
             self._failures = 0
             self._unhealthy = 0
             self._api_rejections = 0
@@ -283,7 +295,7 @@ class ScaleSharingClient:
         self._next_attempt = time.monotonic() + delay
 
     async def _async_health_check(self, _now: Any = None) -> None:
-        if self._busy:
+        if self._busy or self._stopped:
             return
         if self._manager is None:
             if time.monotonic() >= self._next_attempt:

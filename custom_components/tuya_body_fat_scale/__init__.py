@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 
 from .const import (
     DOMAIN,
@@ -93,6 +93,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         return True
 
+    except ConfigEntryAuthFailed:
+        raise  # starts the re-authentication flow
     except Exception as err:
         _LOGGER.error("Error setting up Tuya Scale integration: %s", err)
         raise ConfigEntryNotReady from err
