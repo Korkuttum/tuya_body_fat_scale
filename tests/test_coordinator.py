@@ -102,3 +102,15 @@ async def test_new_message_restarts_debounce(hass, monkeypatch):
     await c._trigger_task
     assert first.cancelled()
     assert api.calls == 2  # one baseline + a single push refresh
+
+
+async def test_null_height_record_is_skipped(hass):
+    bad = record(2000)
+    bad["height"] = "null"
+    api = FakeApi([[record(1000), bad]])
+    c = make(hass, api)
+    await c.async_refresh()
+    # the newest record is unusable -> fall back to the last valid one, no analysis crash
+    assert c.data["u1"]["weight"] == 70.5
+    assert api.reports == 1
+    assert c.last_update_success

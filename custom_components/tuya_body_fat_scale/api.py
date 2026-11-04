@@ -245,7 +245,7 @@ class TuyaScaleAPI:
     async def get_analysis_report(self, data: dict) -> dict:
         path = f"/v1.0/scales/{self._device_id}/analysis-reports"
         body = json.dumps({
-            "height": int(data["height"]),
+            "height": int(float(data["height"])),
             "weight": float(data["weight"]),
             "resistance": int(data["resistance"]),
             "age": int(data["age"]),

@@ -76,6 +76,16 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.warning("Invalid resistance value: %s", resistance_value)
             return 0
 
+    @staticmethod
+    def _has_usable_values(record: dict) -> bool:
+        """Height and weight must be positive numbers (the cloud sometimes sends "null")."""
+        try:
+            height = float(record.get("height", 170))
+            weight = float(record.get("weight", record.get("wegith", 0)))
+        except (TypeError, ValueError):
+            return False
+        return height > 0 and weight > 0
+
     def _format_body_type_key(self, body_type: int) -> str:
         """Format body type as translation key (lowercase)."""
         types = {
@@ -137,6 +147,10 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
                 for record in records.get("records", []):
                     user_id = record.get("user_id")
                     if not user_id or user_id not in self.user_data:
+                        continue
+                    if not self._has_usable_values(record):
+                        # e.g. height/weight reported as the string "null": analysis can't run
+                        _LOGGER.debug("Skipping unusable record for user %s: %s", user_id, record)
                         continue
 
                     current_timestamp = record.get("create_time", 0)
