@@ -250,9 +250,6 @@
             },
             "bmi": {
                 "name": "BMI"
-            },
-            "last_push_message": {
-                "name": "Last message from scale"
             }
         },
         "button": {
@@ -266,23 +263,6 @@
                 "options": {
                     "male": "Male",
                     "female": "Female"
-                }
-            }
-        },
-        "binary_sensor": {
-            "push_connected": {
-                "name": "Instant updates (MQTT)"
-            }
-        },
-        "event": {
-            "weighed": {
-                "name": "Weighed",
-                "state_attributes": {
-                    "event_type": {
-                        "state": {
-                            "weighed": "Weighed"
-                        }
-                    }
                 }
             }
         }

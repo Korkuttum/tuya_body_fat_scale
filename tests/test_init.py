@@ -104,16 +104,13 @@ async def test_without_session_stays_polling(hass):
 
 # -- diagnostics entities, weighing event, diagnostics download ---------------------------
 
+from homeassistant.helpers import device_registry as dr  # noqa: E402
 from homeassistant.helpers import entity_registry as er  # noqa: E402
 
 from custom_components.tuya_body_fat_scale.diagnostics import async_get_config_entry_diagnostics  # noqa: E402
 
 
-def entity_id(hass, domain, unique_id):
-    return er.async_get(hass).async_get_entity_id(domain, DOMAIN, unique_id)
-
-
-async def test_push_diagnostic_entities_follow_the_connection(hass):
+async def test_push_adds_no_extra_entities_or_devices(hass):
     manager = FakeManager()
     entry = make_entry(hass)
     p_api, p_client = patches(manager)
@@ -121,60 +118,38 @@ async def test_push_diagnostic_entities_follow_the_connection(hass):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
         coordinator = hass.data[DOMAIN][entry.entry_id]
-
-        connected = entity_id(hass, "binary_sensor", f"{entry.entry_id}_push_connected")
-        last_msg = entity_id(hass, "sensor", f"{entry.entry_id}_last_push_message")
-        assert connected and last_msg
-        assert hass.states.get(connected).state == "off"
-        assert hass.states.get(last_msg).state == "unknown"
-
         await coordinator.sharing._async_health_check()
-        await hass.async_block_till_done()
-        assert hass.states.get(connected).state == "on"
-
-        # any status message from the scale (here: battery) updates the timestamp
         manager.mq.listeners[0](msg(status=[{"dpId": 109, "value": True}]))
         await hass.async_block_till_done()
-        assert hass.states.get(last_msg).state != "unknown"
+        assert coordinator.push_connected
+        assert coordinator.last_push_message is not None  # kept for the diagnostics download
 
+        registered = er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+        assert {e.domain for e in registered} == {"sensor", "button"}
+        assert not any(e.unique_id.endswith(("_push_connected", "_last_push_message", "_weighed")) for e in registered)
+        devices = dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id)
+        assert {next(iter(d.identifiers))[1] for d in devices} == {f"{entry.entry_id}_u1"}
         assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_polling_only_has_no_push_entities(hass):
+async def test_leftovers_of_beta4_are_removed(hass):
     entry = make_entry(hass, with_session=False)
+    ent_reg, dev_reg = er.async_get(hass), dr.async_get(hass)
+    stale = [
+        ent_reg.async_get_or_create("binary_sensor", DOMAIN, f"{entry.entry_id}_push_connected", config_entry=entry),
+        ent_reg.async_get_or_create("sensor", DOMAIN, f"{entry.entry_id}_last_push_message", config_entry=entry),
+        ent_reg.async_get_or_create("event", DOMAIN, f"{entry.entry_id}_u1_weighed", config_entry=entry),
+    ]
+    dev_reg.async_get_or_create(config_entry_id=entry.entry_id, identifiers={(DOMAIN, entry.entry_id)})
     p_api, p_client = patches(FakeManager())
     with p_api, p_client:
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
-        assert entity_id(hass, "binary_sensor", f"{entry.entry_id}_push_connected") is None
-        assert entity_id(hass, "sensor", f"{entry.entry_id}_last_push_message") is None
-
-
-async def test_weighed_event_fires_only_for_new_measurements(hass):
-    entry = make_entry(hass, with_session=False)
-    api = FakeApi([[record(1000)], [record(2000, weight=71.2)]])
-    with patch("custom_components.tuya_body_fat_scale.TuyaScaleAPI", return_value=api):
-        assert await hass.config_entries.async_setup(entry.entry_id)
-        await hass.async_block_till_done()
-        coordinator = hass.data[DOMAIN][entry.entry_id]
-        eid = entity_id(hass, "event", f"{entry.entry_id}_u1_weighed")
-        assert eid == "event.tuya_body_fat_scale_ali_weighed"
-        # the measurement present at startup is only the baseline
-        assert hass.states.get(eid).state == "unknown"
-
-        await coordinator.async_refresh()  # a newer record shows up
-        await hass.async_block_till_done()
-        state = hass.states.get(eid)
-        assert state.state != "unknown"
-        assert state.attributes["event_type"] == "weighed"
-        assert state.attributes["weight"] == 71.2
-        fired_at = state.state
-
-        # same record again, and a push-status refresh: no second event
-        await coordinator.async_refresh()
-        coordinator.set_push_connected(False)
-        await hass.async_block_till_done()
-        assert hass.states.get(eid).state == fired_at
+    for item in stale:
+        assert ent_reg.async_get(item.entity_id) is None
+    assert dev_reg.async_get_device(identifiers={(DOMAIN, entry.entry_id)}) is None
+    # the real user entities are untouched
+    assert ent_reg.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_u1_weight") is not None
 
 
 async def test_diagnostics_hide_secrets(hass):

@@ -168,12 +168,6 @@ async def test_missing_height_key_keeps_old_default(hass):
     assert c.data["u1"]["height"] == 170
 
 
-async def test_result_carries_measurement_time(hass):
-    c = make(hass, FakeApi([[record(2000)]]))
-    await c.async_refresh()
-    assert c.data["u1"]["measured_at_ms"] == 2000
-
-
 async def test_quota_error_raises_and_clears_repairs_issue(hass):
     from homeassistant.helpers import issue_registry as ir
 

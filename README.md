@@ -18,7 +18,7 @@ This integration is designed to retrieve comprehensive body composition data fro
 - Visceral Fat
 - Multiple user support
 - Instant updates through MQTT push (optional, QR login)
-- Weighing event, push status entities, Repairs and diagnostics
+- Repairs, re-authentication and a diagnostics download
 
 ## Prerequisites
 
@@ -87,12 +87,10 @@ Open the integration and choose **Configure**:
 - If Tuya rejects the QR login several times in a row (it expired or was revoked), Home Assistant asks you to re-authenticate: scan a new QR code and everything continues. A Repairs entry explains what happened.
 - Leaving the User Code empty keeps the previous polling-only behaviour. Existing installations keep working without changes.
 
-### Diagnostics and automations
+### Repairs and diagnostics
 
-- **Instant updates (MQTT)** and **Last message from scale** entities (under the scale device, diagnostic category) show whether the push connection is healthy.
-- A **Weighed** event entity per user fires every time that user is weighed, with weight, BMI, body fat and more as attributes. Use it as a trigger, for example to send a notification.
 - **Repairs** show when the QR login expired, the scale is missing in the linked account, or the Tuya API quota is exhausted.
-- Settings > Devices & Services > the integration > three dots > **Download diagnostics** gives a report with all secrets removed, handy for bug reports.
+- Settings > Devices & Services > the integration > three dots > **Download diagnostics** gives a report with all secrets removed (push connection state, last message from the scale, SDK version), handy for bug reports.
 
 ---
 
@@ -104,14 +102,11 @@ custom_components/
     └── tuya_body_fat_scale/
         ├── __init__.py
         ├── api.py
-        ├── binary_sensor.py
         ├── button.py
         ├── config_flow.py
         ├── const.py
         ├── coordinator.py
         ├── diagnostics.py
-        ├── event.py
-        ├── helpers.py
         ├── manifest.json
         ├── sensor.py
         ├── sharing.py

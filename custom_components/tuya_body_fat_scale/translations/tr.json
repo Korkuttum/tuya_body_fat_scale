@@ -253,9 +253,6 @@
             },
             "bmi": {
                 "name": "VKİ"
-            },
-            "last_push_message": {
-                "name": "Tartıdan son mesaj"
             }
         },
         "button": {
@@ -269,23 +266,6 @@
                 "options": {
                     "male": "Erkek",
                     "female": "Kadın"
-                }
-            }
-        },
-        "binary_sensor": {
-            "push_connected": {
-                "name": "Anlık güncelleme (MQTT)"
-            }
-        },
-        "event": {
-            "weighed": {
-                "name": "Tartıldı",
-                "state_attributes": {
-                    "event_type": {
-                        "state": {
-                            "weighed": "Tartıldı"
-                        }
-                    }
                 }
             }
         }

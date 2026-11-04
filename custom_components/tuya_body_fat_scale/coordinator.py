@@ -133,12 +133,10 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
         if connected and not was_connected:
             # catch up on anything missed while the push connection was down
             self.resync()
-        self.async_update_listeners()
 
     def note_push_activity(self) -> None:
-        """The scale sent any status message over MQTT."""
+        """The scale sent any status message over MQTT (shown in the diagnostics download)."""
         self.last_push_message = dt_util.utcnow()
-        self.async_update_listeners()
 
     def _fallback_interval(self) -> timedelta:
         """Polling interval while push is not connected (capped when push is configured)."""
@@ -239,7 +237,6 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
                             "height": height,
                             "weight": weight,
                             "resistance": processed_resistance,
-                            "measured_at_ms": record.get("create_time", 0),
                             "last_measurement": self.api.format_datetime(record.get("create_time", 0)),
                             "body_type": self._format_body_type_key(report.get("body_type", 0)),  # DEĞİŞTİ: key format
                             "fat_free_mass": report.get("ffm", 0),

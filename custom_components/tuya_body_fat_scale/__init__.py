@@ -7,6 +7,8 @@ from datetime import timedelta
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.exceptions import ConfigEntryNotReady
 
@@ -26,7 +28,7 @@ from .api import TuyaScaleAPI
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BUTTON, Platform.BINARY_SENSOR, Platform.EVENT]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BUTTON]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Tuya Body Fat Scale from a config entry."""
@@ -59,9 +61,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN][entry.entry_id] = coordinator
 
+        _remove_retired_entities(hass, entry)
+
         # Optional MQTT push (needs the QR session saved by the config flow).
-        # The client object exists before the platforms load so they can add the
-        # push diagnostics entities; it is started after they are set up.
+        # The client is started after the platforms are set up.
         if entry.data.get(CONF_SESSION) and entry.data.get(CONF_USER_CODE):
             coordinator.sharing = ScaleSharingClient(
                 hass,
@@ -92,6 +95,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except Exception as err:
         _LOGGER.error("Error setting up Tuya Scale integration: %s", err)
         raise ConfigEntryNotReady from err
+
+def _remove_retired_entities(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Delete the push-status and weighing-event entities (and their device) of 2.0.0-beta.4."""
+    ent_reg = er.async_get(hass)
+    retired = {f"{entry.entry_id}_push_connected", f"{entry.entry_id}_last_push_message"}
+    for entity in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+        if entity.unique_id in retired or entity.unique_id.endswith("_weighed"):
+            ent_reg.async_remove(entity.entity_id)
+    dev_reg = dr.async_get(hass)
+    device = dev_reg.async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    if device is not None:
+        dev_reg.async_remove_device(device.id)
+
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
