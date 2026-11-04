@@ -7,6 +7,7 @@ Changes:
 - Bildirim ayarı kullanıcı seçimine bağlıdır.
 """
 
+import asyncio
 import logging
 from datetime import datetime, timedelta
 import async_timeout
@@ -23,6 +24,10 @@ from .const import (
     ERROR_AUTH,
     CONF_USERS,
     CONF_API_ERROR_NOTIFICATION,  # eklendi
+    MQTT_DEBOUNCE_SECONDS,
+    MQTT_FALLBACK_INTERVAL,
+    MQTT_RETRIES,
+    MQTT_RETRY_DELAY,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -43,10 +48,18 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
         self.user_data = config_entry.data.get(CONF_USERS, {})
         self._last_success_data = None
         self.hass = hass  # Bildirim göndermek için kaydediyoruz
+        self._poll_interval = timedelta(seconds=update_interval)
+        self._max_pages = 5
+        self._latest_ts = 0  # newest record time seen for a configured user
+        self._report_cache: dict = {}  # user_id -> (key, result)
+        self._trigger_task: asyncio.Task | None = None
+        self.push_connected = False
+        self.sharing = None
 
         super().__init__(
             hass,
             _LOGGER,
+            config_entry=config_entry,
             name=DOMAIN,
             update_interval=timedelta(seconds=update_interval),
         )
@@ -74,11 +87,50 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
         }
         return types.get(body_type, "normal")
 
+    # -- MQTT push -----------------------------------------------------
+
+    def set_push_connected(self, connected: bool) -> None:
+        """Poll rarely while push works, at the configured interval otherwise."""
+        was_connected = self.push_connected
+        self.push_connected = connected
+        self.update_interval = (
+            timedelta(seconds=MQTT_FALLBACK_INTERVAL) if connected else self._poll_interval
+        )
+        if connected and not was_connected:
+            # catch up on anything missed while the push connection was down
+            self.hass.async_create_task(self.async_request_refresh())
+
+    def handle_measurement(self) -> None:
+        """A push message says the scale reported something; refresh after it settles."""
+        if self._trigger_task and not self._trigger_task.done():
+            self._trigger_task.cancel()
+        self._trigger_task = self.hass.async_create_task(self._refresh_after_measurement())
+
+    async def _refresh_after_measurement(self) -> None:
+        await asyncio.sleep(MQTT_DEBOUNCE_SECONDS)
+        for attempt in range(MQTT_RETRIES + 1):
+            before = self._latest_ts
+            self._max_pages = 1
+            try:
+                await self.async_refresh()
+            finally:
+                self._max_pages = 5
+            if self._latest_ts > before:
+                return
+            if attempt < MQTT_RETRIES:
+                await asyncio.sleep(MQTT_RETRY_DELAY)
+        _LOGGER.debug("No newer record after push message")
+
+    async def async_shutdown(self) -> None:
+        if self._trigger_task and not self._trigger_task.done():
+            self._trigger_task.cancel()
+        await super().async_shutdown()
+
     async def _async_update_data(self) -> dict:
         try:
             async with async_timeout.timeout(30):
                 _LOGGER.debug("Starting data update")
-                records = await self.api.get_scale_records(max_pages=5)
+                records = await self.api.get_scale_records(max_pages=self._max_pages)
                 _LOGGER.debug("Received records: %s", records)
 
                 user_records = {}
@@ -93,6 +145,9 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
                         user_records[user_id] = record
 
                 results = {}
+                newest = max(
+                    (r.get("create_time", 0) for r in user_records.values()), default=0
+                )
                 for user_id, record in user_records.items():
                     try:
                         user_info = self.user_data[user_id]
@@ -103,6 +158,12 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
                         height = record.get("height", 170)
                         resistance = record.get("resistance", record.get("body_r", 0))
                         processed_resistance = self._process_resistance(resistance)
+
+                        cache_key = (record.get("create_time"), age, height, weight, processed_resistance)
+                        cached = self._report_cache.get(user_id)
+                        if cached and cached[0] == cache_key:
+                            results[user_id] = cached[1]
+                            continue
 
                         analysis_data = {
                             "height": height,
@@ -138,10 +199,12 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
                             "body_age": report.get("body_age", 0),
                             "bmi": report.get("bmi", 0)
                         }
+                        self._report_cache[user_id] = (cache_key, results[user_id])
                         _LOGGER.debug("Processed data for user %s: %s", user_id, results[user_id])
                     except Exception as err:
                         _LOGGER.error("Error processing user %s: %s", user_id, str(err))
 
+                self._latest_ts = max(self._latest_ts, newest)
                 self._last_success_data = results
                 return results
 

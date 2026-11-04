@@ -10,7 +10,19 @@
                     "device_id": "Device ID",
                     "region": "Region",
                     "scan_interval": "Update Interval (seconds)",
-                    "api_error_notification": "Show API error notifications"
+                    "api_error_notification": "Show API error notifications",
+                    "user_code": "User Code (optional)"
+                },
+                "data_description": {
+                    "user_code": "Smart Life / Tuya Smart app > Me > Settings (gear) > Account and Security > User Code. Leave empty to keep polling only; with a code you scan a QR next and get instant updates when someone steps on the scale.",
+                    "region": "Data center of your Tuya IoT project."
+                }
+            },
+            "qr": {
+                "title": "Scan the QR code",
+                "description": "Open the Smart Life / Tuya Smart app, tap the scan icon on the Me tab (top right), scan the code and confirm. Then press Submit.",
+                "data": {
+                    "qr_code": "QR code"
                 }
             },
             "users": {
@@ -28,7 +40,10 @@
             "no_users": "No users found on the scale",
             "user_config_failed": "Failed to configure user",
             "invalid_date": "Invalid date format. Use DD.MM.YYYY",
-            "invalid_age": "Invalid age range (must be between 0-120 years)"
+            "invalid_age": "Invalid age range (must be between 0-120 years)",
+            "qr_failed": "Could not create a login QR code. Check the user code.",
+            "qr_not_scanned": "The QR code was not confirmed yet. Scan it in the app and press Submit again.",
+            "device_not_in_account": "This device was not found in the app account you scanned with."
         },
         "abort": {
             "already_configured": "Device is already configured"

@@ -9,7 +9,13 @@
             "unknown": "Beklenmeyen hata oluştu",
             "user_config_failed": "Kullanıcı yapılandırması başarısız",
             "invalid_date": "Geçersiz tarih formatı. GG.AA.YYYY kullanın",
-            "invalid_age": "Geçersiz yaş aralığı (0-120 yaş arası olmalı)"
+            "invalid_age": "Geçersiz yaş aralığı (0-120 yaş arası olmalı)",
+            "qr_failed": "Giriş QR kodu oluşturulamadı. Kullanıcı kodunu kontrol edin.",
+            "qr_not_scanned": "QR kod henüz onaylanmadı. Uygulamada okutup tekrar Gönder'e basın.",
+            "device_not_in_account": "Cihaz, QR ile giriş yaptığınız uygulama hesabında bulunamadı.",
+            "invalid_auth": "Kimlik doğrulama başarısız",
+            "cannot_connect": "Tuya API'ye bağlanılamadı",
+            "no_users": "Tartıda kullanıcı bulunamadı"
         },
         "step": {
             "user": {
@@ -19,10 +25,22 @@
                     "device_id": "Cihaz ID",
                     "region": "Bölge",
                     "scan_interval": "Güncelleme Aralığı (saniye)",
-                    "api_error_notification": "API hata bildirimlerini göster"
+                    "api_error_notification": "API hata bildirimlerini göster",
+                    "user_code": "Kullanıcı Kodu (isteğe bağlı)"
                 },
                 "description": "Tuya IoT Platform kimlik bilgilerinizi girin",
-                "title": "Tuya Akıllı Tartı Kurulumu"
+                "title": "Tuya Akıllı Tartı Kurulumu",
+                "data_description": {
+                    "user_code": "Smart Life / Tuya Smart uygulaması > Ben > Ayarlar (dişli) > Hesap ve Güvenlik > Kullanıcı Kodu. Boş bırakırsanız yalnızca periyodik sorgulama yapılır; kod girerseniz bir sonraki adımda QR okutursunuz ve tartıya çıkınca anında güncelleme alırsınız.",
+                    "region": "Tuya IoT projenizin veri merkezi."
+                }
+            },
+            "qr": {
+                "title": "QR kodu okutun",
+                "description": "Smart Life / Tuya Smart uygulamasını açın, Ben sekmesinde sağ üstteki tara simgesine dokunun, kodu okutup onaylayın. Ardından Gönder'e basın.",
+                "data": {
+                    "qr_code": "QR kodu"
+                }
             },
             "users": {
                 "data": {

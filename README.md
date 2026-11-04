@@ -17,7 +17,7 @@ This integration is designed to retrieve comprehensive body composition data fro
 - Body Age
 - Visceral Fat
 - Multiple user support
-- Real-time measurements
+- Instant updates through MQTT push (optional, QR login)
 
 ## Prerequisites
 
@@ -63,11 +63,18 @@ Once installed (either through HACS or manually), you must restart Home Assistan
    - Access ID
    - Access Secret
    - Device ID
-5. Add user information:
+5. *(Optional, beta)* Enter your **User Code** (Smart Life / Tuya Smart app > Me > Settings > Account and Security > User Code). After the credentials a QR code is shown; scan it in the app (Me tab, scan icon, top right) and press Submit. With this the integration listens for the scale over MQTT and refreshes right after a weighing instead of every few minutes. The Access ID/Secret are still required: the body analysis is calculated by the Tuya Cloud API.
+6. Add user information:
    - User id
    - Name
    - Birth Date (DD.MM.YYYY)
    - Gender
+
+### How the push mode behaves
+
+- While the MQTT connection is up, the scale is refreshed right after a new measurement (and every 6 hours as a safety net).
+- If the connection drops, the integration reconnects by itself and polls at the configured update interval until it is back.
+- Leaving the User Code empty keeps the previous polling-only behaviour. Existing installations keep working without changes.
 
 ---
 
@@ -84,6 +91,7 @@ custom_components/
         ├── coordinator.py
         ├── manifest.json
         ├── sensor.py
+        ├── sharing.py
         ├── strings.json
         ├── translations/
             ├── en.json

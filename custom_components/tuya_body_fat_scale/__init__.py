@@ -12,8 +12,11 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from .const import (
     DOMAIN,
     CONF_SCAN_INTERVAL,
+    CONF_SESSION,
+    CONF_USER_CODE,
     DEFAULT_SCAN_INTERVAL,
 )
+from .sharing import ScaleSharingClient
 from .coordinator import TuyaScaleDataUpdateCoordinator
 from .api import TuyaScaleAPI
 
@@ -24,7 +27,7 @@ PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BUTTON]  # <-- BUTTON ekl
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Tuya Body Fat Scale from a config entry."""
     try:
-        _LOGGER.debug("Setting up Tuya Scale integration with config: %s", entry.data)
+        _LOGGER.debug("Setting up Tuya Scale integration for device %s", entry.data.get("device_id"))
         
         # Create API instance
         api = TuyaScaleAPI(hass, dict(entry.data))
@@ -56,7 +59,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         _LOGGER.debug("Platforms setup completed")
 
+        # Optional MQTT push (needs the QR session saved by the config flow)
+        if entry.data.get(CONF_SESSION) and entry.data.get(CONF_USER_CODE):
+            coordinator.sharing = ScaleSharingClient(
+                hass,
+                entry,
+                coordinator.handle_measurement,
+                coordinator.set_push_connected,
+            )
+            await coordinator.sharing.async_start()
+        else:
+            _LOGGER.info("No QR session configured; using polling only")
+
         # Register update listener for options
+        coordinator.options_snapshot = dict(entry.options)
         entry.async_on_unload(entry.add_update_listener(update_listener))
 
         return True
@@ -67,23 +83,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
+    coordinator = hass.data[DOMAIN].get(entry.entry_id)
+    if coordinator is not None:
+        if coordinator.sharing is not None:
+            await coordinator.sharing.async_stop()
+        await coordinator.async_shutdown()
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return unload_ok
 
 async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Update listener."""
-    # Get the coordinator
+    """Reload only when options changed (token refreshes also update the entry)."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    
-    # Update the update_interval
-    coordinator.update_interval = timedelta(
-        seconds=entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
-    )
-    
-    # Trigger an immediate refresh
-    await coordinator.async_refresh()
-
-    # Reload the config entry to apply changes
+    if dict(entry.options) == coordinator.options_snapshot:
+        return
+    coordinator.options_snapshot = dict(entry.options)
     await hass.config_entries.async_reload(entry.entry_id)

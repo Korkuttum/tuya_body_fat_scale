@@ -15,6 +15,27 @@ CONF_API_ERROR_NOTIFICATION = "api_error_notification"  # <-- eklendi
 
 BUTTON_REFRESH = "refresh_data"
 
+# QR / MQTT push (optional)
+CONF_USER_CODE = "user_code"
+CONF_SESSION = "session"  # {"endpoint", "terminal_id", "token": {...}}
+SHARING_CLIENT_ID = "HA_3y9q4ak7g4ephrvke"
+SHARING_SCHEMA = "haauthorize"
+SESSION_TOKEN_KEYS = ("t", "uid", "expire_time", "access_token", "refresh_token")
+
+# Scale datapoints that signal a new measurement (S-Link Swapp: DP 101-108).
+MEASUREMENT_DP_IDS = frozenset(range(101, 109))
+MEASUREMENT_DP_CODES = frozenset(
+    {"weightcount", "time", "weight", "LResistance", "RHR", "LLR", "RLR", "BR"}
+)
+
+MQTT_FALLBACK_INTERVAL = 6 * 3600  # safety poll while push is connected
+MQTT_DEBOUNCE_SECONDS = 8  # wait for the scale to finish sending
+MQTT_RETRY_DELAY = 10  # cloud history can lag behind the push
+MQTT_RETRIES = 3
+MQTT_HEALTH_INTERVAL = 60
+MQTT_RESTART_AFTER_CHECKS = 3  # consecutive unhealthy checks before rebuilding
+MQTT_MAX_RESTART_BACKOFF = 300
+
 # Configuration Defaults
 DEFAULT_SCAN_INTERVAL = 300  # 5 minutes
 

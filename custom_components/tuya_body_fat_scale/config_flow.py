@@ -1,14 +1,18 @@
 """Config flow for Tuya Body Fat Scale integration."""
 from __future__ import annotations
 import logging
+import uuid
 import voluptuous as vol
 from typing import Any
 from datetime import datetime
+
+from tuya_sharing import LoginControl
 
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import selector
 
 from .const import (
     DOMAIN,
@@ -27,8 +31,26 @@ from .const import (
     ERROR_DEVICE,
     ERROR_UNKNOWN,
     CONF_API_ERROR_NOTIFICATION,  # eklendi
+    CONF_SESSION,
+    CONF_USER_CODE,
+    SHARING_CLIENT_ID,
+    SHARING_SCHEMA,
 )
 from .api import TuyaScaleAPI
+from .sharing import DeviceNotInAccount, build_manager, session_token
+
+REGION_LABELS = {
+    "eu": "Europe (eu)",
+    "us": "Americas (us)",
+    "cn": "China (cn)",
+    "in": "India (in)",
+}
+REGION_SELECTOR = selector.SelectSelector(
+    selector.SelectSelectorConfig(
+        options=[{"value": r, "label": REGION_LABELS.get(r, r)} for r in REGIONS],
+        mode=selector.SelectSelectorMode.DROPDOWN,
+    )
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,6 +64,8 @@ class TuyaScaleConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._config: dict = {}
         self._users: dict = {}
         self._available_users: list = []
+        self._login = LoginControl()
+        self._qr_token: str | None = None
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle the initial step."""
@@ -91,12 +115,14 @@ class TuyaScaleConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_SCAN_INTERVAL: scan_interval,
                         CONF_API_ERROR_NOTIFICATION: api_error_notification,
                     }
-                    # Set initial options
-                    self.hass.config_entries.options = {
-                        CONF_SCAN_INTERVAL: scan_interval,
-                        CONF_API_ERROR_NOTIFICATION: api_error_notification,
-                    }
-                    return await self.async_step_users()
+                    user_code = (user_input.get(CONF_USER_CODE) or "").strip()
+                    if user_code:
+                        self._config[CONF_USER_CODE] = user_code
+                        if await self._async_new_qr():
+                            return await self.async_step_qr()
+                        errors["base"] = "qr_failed"
+                    else:
+                        return await self.async_step_users()
 
             except Exception as err:
                 _LOGGER.error("Failed to connect to Tuya API: %s", str(err))
@@ -112,11 +138,88 @@ class TuyaScaleConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_ACCESS_ID): str,
                     vol.Required(CONF_ACCESS_KEY): str,
                     vol.Required(CONF_DEVICE_ID): str,
-                    vol.Required(CONF_REGION): vol.In(REGIONS),
+                    vol.Required(CONF_REGION, default=REGIONS[0]): REGION_SELECTOR,
+                    vol.Optional(CONF_USER_CODE, default=""): str,
                     vol.Required(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(
                         vol.Coerce(int), vol.Range(min=60)
                     ),
                     vol.Required(CONF_API_ERROR_NOTIFICATION, default=True): bool,  # seçenek eklendi
+                }
+            ),
+            errors=errors,
+        )
+
+    async def _async_new_qr(self) -> bool:
+        """Ask Tuya for a login QR for the configured user code."""
+        try:
+            resp = await self.hass.async_add_executor_job(
+                self._login.qr_code,
+                SHARING_CLIENT_ID,
+                SHARING_SCHEMA,
+                self._config[CONF_USER_CODE],
+            )
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.error("QR request failed: %s", err)
+            return False
+        if not resp.get("success"):
+            _LOGGER.error("QR request rejected: %s", resp.get("msg"))
+            return False
+        self._qr_token = resp["result"]["qrcode"]
+        return True
+
+    def _verify_session(self, session: dict[str, Any]) -> None:
+        """Blocking: make sure the scale is in the QR-linked account."""
+        manager = build_manager(session, self._config[CONF_USER_CODE])
+        manager.update_device_cache()
+        if self._config[CONF_DEVICE_ID] not in manager.device_map:
+            raise DeviceNotInAccount(self._config[CONF_DEVICE_ID])
+
+    async def async_step_qr(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Show the login QR; on submit check that it was scanned."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            try:
+                ok, info = await self.hass.async_add_executor_job(
+                    self._login.login_result,
+                    self._qr_token,
+                    SHARING_CLIENT_ID,
+                    self._config[CONF_USER_CODE],
+                )
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.error("QR login check failed: %s", err)
+                ok, info = False, {}
+            if not ok:
+                errors["base"] = "qr_not_scanned"
+            else:
+                session = {
+                    "endpoint": info["endpoint"],
+                    "terminal_id": info.get("terminal_id") or uuid.uuid4().hex,
+                    "token": session_token(info),
+                }
+                try:
+                    await self.hass.async_add_executor_job(self._verify_session, session)
+                except DeviceNotInAccount:
+                    errors["base"] = "device_not_in_account"
+                    self._config.pop(CONF_SESSION, None)
+                except Exception as err:  # noqa: BLE001
+                    _LOGGER.error("Could not read devices from the QR account: %s", err)
+                    errors["base"] = "cannot_connect"
+                else:
+                    self._config[CONF_SESSION] = session
+                    return await self.async_step_users()
+
+        return self.async_show_form(
+            step_id="qr",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional("qr_code"): selector.QrCodeSelector(
+                        config=selector.QrCodeSelectorConfig(
+                            data=f"tuyaSmart--qrLogin?token={self._qr_token}",
+                            scale=5,
+                            error_correction_level=selector.QrErrorCorrectionLevel.QUARTILE,
+                        )
+                    )
                 }
             ),
             errors=errors,
