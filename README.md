@@ -17,7 +17,8 @@ This integration is designed to retrieve comprehensive body composition data fro
 - Body Age
 - Visceral Fat
 - Multiple user support
-- Real-time measurements
+- Instant updates through MQTT push (optional, QR login)
+- Repairs, re-authentication and a diagnostics download
 
 ## Prerequisites
 
@@ -62,12 +63,34 @@ Once installed (either through HACS or manually), you must restart Home Assistan
 4. Enter your Tuya IoT Platform credentials:
    - Access ID
    - Access Secret
-   - Device ID
-5. Add user information:
-   - User id
-   - Name
+   - Device ID (optional when you enter a User Code, see below)
+5. *(Optional)* Enter your **User Code** (Smart Life / Tuya Smart app > Me > Settings > Account and Security > User Code). After the credentials a QR code is shown; scan it in the app (Me tab, scan icon, top right) and press Submit. With this the integration listens for the scale over MQTT and refreshes right after a weighing instead of every few minutes. The Access ID/Secret are still required: the body analysis is calculated by the Tuya Cloud API. If you left the Device ID empty, you now pick the scale from the devices of your account.
+6. If several users weighed themselves on the scale you choose which ones to set up. An entry called `unknown` (ID 0) is a weighing the scale could not match to a profile and is not selected by default.
+7. Add each user's information:
    - Birth Date (DD.MM.YYYY)
    - Gender
+   - Height in cm *(optional, only used when the scale reports no height)*
+
+### Changing things later
+
+Open the integration and choose **Configure**:
+
+- **Update interval and notifications**
+- **Link / re-link QR**: add instant updates to an existing setup, or link again after the QR login expired
+- **Edit or remove a user**: birth date, gender, height; removing a user also deletes their entities
+- **Add users**: users that appeared on the scale after the setup
+
+### How the push mode behaves
+
+- While the MQTT connection is up, the scale is refreshed right after a new measurement (and every 6 hours as a safety net).
+- If the connection drops, the integration reconnects by itself. A weighing that happened during a short gap is picked up by a catch-up refresh. While the connection is down the data is polled at the configured update interval, at least once an hour.
+- If Tuya rejects the QR login several times in a row (it expired or was revoked), Home Assistant asks you to re-authenticate: scan a new QR code and everything continues. A Repairs entry explains what happened.
+- Leaving the User Code empty keeps the previous polling-only behaviour. Existing installations keep working without changes.
+
+### Repairs and diagnostics
+
+- **Repairs** show when the QR login expired, the scale is missing in the linked account, or the Tuya API quota is exhausted.
+- Settings > Devices & Services > the integration > three dots > **Download diagnostics** gives a report with all secrets removed (push connection state, last message from the scale, SDK version), handy for bug reports.
 
 ---
 
@@ -79,11 +102,14 @@ custom_components/
     └── tuya_body_fat_scale/
         ├── __init__.py
         ├── api.py
+        ├── button.py
         ├── config_flow.py
         ├── const.py
         ├── coordinator.py
+        ├── diagnostics.py
         ├── manifest.json
         ├── sensor.py
+        ├── sharing.py
         ├── strings.json
         ├── translations/
             ├── en.json

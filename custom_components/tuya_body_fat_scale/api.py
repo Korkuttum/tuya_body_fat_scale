@@ -99,13 +99,6 @@ class TuyaScaleAPI:
                 message.encode('utf-8'),
                 hashlib.sha256
             ).hexdigest().upper()
-            _LOGGER.debug(
-                "Signature calculation:\n"
-                "String to sign: %s\n"
-                "Message: %s\n"
-                "Signature: %s",
-                str_to_sign, message, signature
-            )
             return signature
         except Exception as err:
             _LOGGER.error("Error generating signature: %s", str(err))
@@ -124,18 +117,13 @@ class TuyaScaleAPI:
                 'sign_method': 'HMAC-SHA256'
             }
             url = f"{self._api_endpoint}{path}"
-            _LOGGER.debug(
-                "Getting token\n"
-                "URL: %s\n"
-                "Headers: %s",
-                url, json.dumps(headers, indent=2)
-            )
+            _LOGGER.debug("Getting token from %s", url)
             response = await self.hass.async_add_executor_job(
                 make_api_request,
                 url,
                 headers
             )
-            _LOGGER.debug("Token response: %s", response.text)
+            _LOGGER.debug("Token response status: %s", response.status_code)
             if response.status_code != 200:
                 _LOGGER.error(
                     "Token request failed\n"
@@ -150,12 +138,13 @@ class TuyaScaleAPI:
                 raise Exception(ERROR_AUTH)
             self._token = result['result']['access_token']
             self._token_expires = time.time() + result['result']['expire_time']
-            _LOGGER.debug("Got access token: %s", self._token)
+            _LOGGER.debug("Got an access token")
         except Exception as err:
             _LOGGER.error("Error getting token: %s", str(err))
             raise
 
-    async def _api_request(self, method: str, path: str, body: str = "") -> dict:
+    async def _api_request(self, method: str, path: str, body: str = "", _retry: bool = True) -> dict:
+        url = path
         try:
             await self._rate_limiter.wait_if_needed()
             if not self._token or time.time() >= self._token_expires:
@@ -172,13 +161,7 @@ class TuyaScaleAPI:
             if body:
                 headers["Content-Type"] = "application/json"
             url = f"{self._api_endpoint}{path}"
-            _LOGGER.debug(
-                "Making API request - Method: %s\n"
-                "URL: %s\n"
-                "Headers: %s\n"
-                "Body: %s",
-                method, url, json.dumps(headers, indent=2), body
-            )
+            _LOGGER.debug("Making API request - Method: %s URL: %s Body: %s", method, url, body)
             response = await self.hass.async_add_executor_job(
                 make_api_request,
                 url,
@@ -187,9 +170,11 @@ class TuyaScaleAPI:
             )
             _LOGGER.debug("API response: %s", response.text)
             if response.status_code == 401:
+                if not _retry:
+                    raise Exception("HTTP error 401 (invalid token)")
                 _LOGGER.info("Token expired, refreshing...")
                 self._token = None
-                return await self._api_request(method, path, body)
+                return await self._api_request(method, path, body, _retry=False)
             if response.status_code != 200:
                 raise Exception(f"HTTP error {response.status_code}")
             try:
@@ -199,10 +184,10 @@ class TuyaScaleAPI:
                 raise Exception("Invalid JSON response from API")
             if not result.get('success', False):
                 msg = result.get('msg', '')
-                if 'token' in msg.lower() or 'unknown error' in msg.lower():
+                if _retry and ('token' in msg.lower() or 'unknown error' in msg.lower()):
                     _LOGGER.info("Token invalid or unknown error, refreshing token...")
                     self._token = None
-                    return await self._api_request(method, path, body)
+                    return await self._api_request(method, path, body, _retry=False)
                 raise Exception(f"API error: {msg}")
             return result["result"]
         except requests.exceptions.Timeout:
@@ -245,7 +230,7 @@ class TuyaScaleAPI:
     async def get_analysis_report(self, data: dict) -> dict:
         path = f"/v1.0/scales/{self._device_id}/analysis-reports"
         body = json.dumps({
-            "height": int(data["height"]),
+            "height": int(float(data["height"])),
             "weight": float(data["weight"]),
             "resistance": int(data["resistance"]),
             "age": int(data["age"]),

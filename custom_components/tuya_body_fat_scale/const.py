@@ -15,6 +15,39 @@ CONF_API_ERROR_NOTIFICATION = "api_error_notification"  # <-- eklendi
 
 BUTTON_REFRESH = "refresh_data"
 
+# QR / MQTT push (optional)
+CONF_USER_CODE = "user_code"
+CONF_SESSION = "session"  # {"endpoint", "terminal_id", "token": {...}}
+SHARING_CLIENT_ID = "HA_3y9q4ak7g4ephrvke"
+SHARING_SCHEMA = "haauthorize"
+SESSION_TOKEN_KEYS = ("t", "uid", "expire_time", "access_token", "refresh_token")
+
+# Scale datapoints that signal a new measurement (S-Link Swapp: DP 101-108).
+MEASUREMENT_DP_IDS = frozenset(range(101, 109))
+MEASUREMENT_DP_CODES = frozenset(
+    {"weightcount", "time", "weight", "LResistance", "RHR", "LLR", "RLR", "BR"}
+)
+
+MQTT_FALLBACK_INTERVAL = 6 * 3600  # safety poll while push is connected
+MQTT_DEBOUNCE_SECONDS = 8  # wait for the scale to finish sending
+MQTT_RETRY_DELAY = 10  # cloud history can lag behind the push
+MQTT_RETRIES = 3
+MQTT_HEALTH_INTERVAL = 60
+MQTT_RESTART_AFTER_CHECKS = 3  # consecutive unhealthy checks before rebuilding
+MQTT_MAX_RESTART_BACKOFF = 300
+MQTT_DOWN_MAX_INTERVAL = 3600  # while push is down, poll at least this often
+SDK_RECOMMENDED_VERSION = (0, 2, 15)  # first SDK with its own robust MQTT reconnect
+SESSION_REAUTH_AFTER_FAILURES = 3  # consecutive API rejections before asking for a new QR login
+SESSION_REAUTH_AFTER_SECONDS = 600  # ...and they must span this long (rides out short Tuya hiccups)
+REAUTH_TARGET = "reauth_target"  # flow context key: "session" (QR) or "api" (Access ID/Key)
+REAUTH_SESSION = "session"
+REAUTH_API = "api"
+
+# Repairs issue ids (suffix with the entry id)
+ISSUE_SESSION_EXPIRED = "session_expired"
+ISSUE_DEVICE_NOT_IN_ACCOUNT = "device_not_in_account"
+ISSUE_API_QUOTA = "api_quota_exhausted"
+
 # Configuration Defaults
 DEFAULT_SCAN_INTERVAL = 300  # 5 minutes
 

@@ -1,7 +1,7 @@
 """Support for Tuya Body Fat Scale sensors."""
 from __future__ import annotations
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -167,10 +167,9 @@ class TuyaScaleSensor(CoordinatorEntity, SensorEntity):
             if self._sensor_key == "last_measurement":
                 try:
                     if isinstance(value, str):
+                        # api.format_datetime() produced host-local wall-clock time
                         local_dt = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-                        # Convert to UTC by subtracting 3 hours
-                        utc_dt = local_dt - timedelta(hours=3)
-                        return utc_dt.replace(tzinfo=timezone.utc)
+                        return local_dt.astimezone(timezone.utc)
                     return None
                 except (ValueError, TypeError):
                     return None
