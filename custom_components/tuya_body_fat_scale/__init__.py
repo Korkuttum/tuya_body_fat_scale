@@ -7,6 +7,7 @@ from datetime import timedelta
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from .const import (
@@ -15,6 +16,9 @@ from .const import (
     CONF_SESSION,
     CONF_USER_CODE,
     DEFAULT_SCAN_INTERVAL,
+    ISSUE_API_QUOTA,
+    ISSUE_DEVICE_NOT_IN_ACCOUNT,
+    ISSUE_SESSION_EXPIRED,
 )
 from .sharing import ScaleSharingClient
 from .coordinator import TuyaScaleDataUpdateCoordinator
@@ -22,7 +26,7 @@ from .api import TuyaScaleAPI
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BUTTON]  # <-- BUTTON ekle
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BUTTON, Platform.BINARY_SENSOR, Platform.EVENT]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Tuya Body Fat Scale from a config entry."""
@@ -55,11 +59,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN][entry.entry_id] = coordinator
 
-        # Set up platforms
-        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-        _LOGGER.debug("Platforms setup completed")
-
-        # Optional MQTT push (needs the QR session saved by the config flow)
+        # Optional MQTT push (needs the QR session saved by the config flow).
+        # The client object exists before the platforms load so they can add the
+        # push diagnostics entities; it is started after they are set up.
         if entry.data.get(CONF_SESSION) and entry.data.get(CONF_USER_CODE):
             coordinator.sharing = ScaleSharingClient(
                 hass,
@@ -67,12 +69,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 coordinator.handle_measurement,
                 coordinator.set_push_connected,
                 on_resync=coordinator.resync,
+                on_activity=coordinator.note_push_activity,
             )
             # push not connected yet: poll at the capped fallback interval until it is
             coordinator.set_push_connected(False)
-            await coordinator.sharing.async_start()
         else:
             _LOGGER.info("No QR session configured; using polling only")
+
+        # Set up platforms
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        _LOGGER.debug("Platforms setup completed")
+
+        if coordinator.sharing is not None:
+            await coordinator.sharing.async_start()
 
         # Register update listener for options
         coordinator.options_snapshot = dict(entry.options)
@@ -95,6 +104,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return unload_ok
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Drop the Repairs issues of a removed entry."""
+    for kind in (ISSUE_SESSION_EXPIRED, ISSUE_DEVICE_NOT_IN_ACCOUNT, ISSUE_API_QUOTA):
+        ir.async_delete_issue(hass, DOMAIN, f"{kind}_{entry.entry_id}")
+
 
 async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload only when options changed (token refreshes also update the entry)."""

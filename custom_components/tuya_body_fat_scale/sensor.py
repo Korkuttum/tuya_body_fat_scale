@@ -10,6 +10,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
+    EntityCategory,
     UnitOfMass,
     PERCENTAGE,
     UnitOfLength,
@@ -29,6 +30,7 @@ from .const import (
     SENSOR_TYPES,
 )
 from .coordinator import TuyaScaleDataUpdateCoordinator
+from .helpers import scale_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,11 +64,36 @@ async def async_setup_entry(
                 )
             )
     
+    if coordinator.sharing is not None:
+        entities.append(TuyaScaleLastPushSensor(coordinator, config_entry))
+
     _LOGGER.debug("Created %d sensor entities", len(entities))
     if entities:
         async_add_entities(entities)
     else:
         _LOGGER.warning("No sensor entities were created!")
+
+class TuyaScaleLastPushSensor(CoordinatorEntity, SensorEntity):
+    """When the scale last sent anything over MQTT (diagnostic)."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "last_push_message"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: TuyaScaleDataUpdateCoordinator, config_entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{config_entry.entry_id}_last_push_message"
+        self._attr_device_info = scale_device_info(config_entry.entry_id)
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    @property
+    def native_value(self) -> datetime | None:
+        return self.coordinator.last_push_message
+
 
 class TuyaScaleSensor(CoordinatorEntity, SensorEntity):
     """Implementation of a Tuya Body Fat Scale sensor."""

@@ -17,6 +17,8 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import issue_registry as ir
+from homeassistant.util import dt as dt_util
 
 from .api import TuyaScaleAPI
 from .const import (
@@ -24,6 +26,8 @@ from .const import (
     ERROR_AUTH,
     CONF_USERS,
     CONF_API_ERROR_NOTIFICATION,  # eklendi
+    CONF_HEIGHT,
+    ISSUE_API_QUOTA,
     MQTT_DEBOUNCE_SECONDS,
     MQTT_DOWN_MAX_INTERVAL,
     MQTT_FALLBACK_INTERVAL,
@@ -56,6 +60,7 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
         self._trigger_task: asyncio.Task | None = None
         self.push_connected = False
         self.sharing = None
+        self.last_push_message = None  # datetime of the last status message from the scale
 
         super().__init__(
             hass,
@@ -78,14 +83,32 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
             return 0
 
     @staticmethod
-    def _has_usable_values(record: dict) -> bool:
-        """Height and weight must be positive numbers (the cloud sometimes sends "null")."""
+    def _positive_number(value) -> float | None:
         try:
-            height = float(record.get("height", 170))
-            weight = float(record.get("weight", record.get("wegith", 0)))
+            number = float(value)
         except (TypeError, ValueError):
-            return False
-        return height > 0 and weight > 0
+            return None
+        return number if number > 0 else None
+
+    def _resolve_height(self, record: dict, user_info: dict):
+        """Height from the record, else the one saved for the user, else the old 170 cm default.
+
+        The cloud sometimes reports the string "null"; that is only replaced by a saved height.
+        """
+        candidates = []
+        if "height" in record:
+            candidates.append(record["height"])
+        candidates.append(user_info.get(CONF_HEIGHT))
+        for candidate in candidates:
+            height = self._positive_number(candidate)
+            if height is not None:
+                return int(height) if height == int(height) else height
+        return None if "height" in record else 170
+
+    def _has_usable_values(self, record: dict, user_info: dict) -> bool:
+        """Weight and a height (from the record or the user settings) are required for the analysis."""
+        weight = self._positive_number(record.get("weight", record.get("wegith", 0)))
+        return weight is not None and self._resolve_height(record, user_info) is not None
 
     def _format_body_type_key(self, body_type: int) -> str:
         """Format body type as translation key (lowercase)."""
@@ -110,6 +133,12 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
         if connected and not was_connected:
             # catch up on anything missed while the push connection was down
             self.resync()
+        self.async_update_listeners()
+
+    def note_push_activity(self) -> None:
+        """The scale sent any status message over MQTT."""
+        self.last_push_message = dt_util.utcnow()
+        self.async_update_listeners()
 
     def _fallback_interval(self) -> timedelta:
         """Polling interval while push is not connected (capped when push is configured)."""
@@ -159,8 +188,8 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
                     user_id = record.get("user_id")
                     if not user_id or user_id not in self.user_data:
                         continue
-                    if not self._has_usable_values(record):
-                        # e.g. height/weight reported as the string "null": analysis can't run
+                    if not self._has_usable_values(record, self.user_data[user_id]):
+                        # e.g. weight reported as "null" or no height anywhere: analysis can't run
                         _LOGGER.debug("Skipping unusable record for user %s: %s", user_id, record)
                         continue
 
@@ -180,7 +209,7 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
                         age = (datetime.now() - birth_date).days // 365
 
                         weight = record.get("weight", record.get("wegith", 0))
-                        height = record.get("height", 170)
+                        height = self._resolve_height(record, user_info)
                         resistance = record.get("resistance", record.get("body_r", 0))
                         processed_resistance = self._process_resistance(resistance)
 
@@ -210,6 +239,7 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
                             "height": height,
                             "weight": weight,
                             "resistance": processed_resistance,
+                            "measured_at_ms": record.get("create_time", 0),
                             "last_measurement": self.api.format_datetime(record.get("create_time", 0)),
                             "body_type": self._format_body_type_key(report.get("body_type", 0)),  # DEĞİŞTİ: key format
                             "fat_free_mass": report.get("ffm", 0),
@@ -231,10 +261,21 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
 
                 self._latest_ts = max(self._latest_ts, newest)
                 self._last_success_data = results
+                ir.async_delete_issue(self.hass, DOMAIN, f"{ISSUE_API_QUOTA}_{self.config_entry.entry_id}")
                 return results
 
         except Exception as err:
             _LOGGER.error("Error fetching data: %s", err)
+            if "quota" in str(err).lower():
+                ir.async_create_issue(
+                    self.hass,
+                    DOMAIN,
+                    f"{ISSUE_API_QUOTA}_{self.config_entry.entry_id}",
+                    is_fixable=False,
+                    severity=ir.IssueSeverity.WARNING,
+                    translation_key=ISSUE_API_QUOTA,
+                    translation_placeholders={"error": str(err)},
+                )
             # Bildirim ayarına göre gönder
             should_notify = (
                 self.config_entry.options.get(CONF_API_ERROR_NOTIFICATION, True)

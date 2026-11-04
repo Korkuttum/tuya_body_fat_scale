@@ -1,7 +1,10 @@
 {
     "config": {
         "abort": {
-            "already_configured": "Cihaz zaten yapılandırılmış"
+            "already_configured": "Cihaz zaten yapılandırılmış",
+            "reauth_successful": "Yeniden doğrulama başarılı",
+            "no_devices": "Bu hesapta cihaz bulunamadı.",
+            "no_users": "Kurulacak kullanıcı yok."
         },
         "error": {
             "auth_failed": "Kimlik doğrulama başarısız oldu, lütfen kimlik bilgilerinizi kontrol edin",
@@ -15,14 +18,16 @@
             "device_not_in_account": "Cihaz, QR ile giriş yaptığınız uygulama hesabında bulunamadı.",
             "invalid_auth": "Kimlik doğrulama başarısız",
             "cannot_connect": "Tuya API'ye bağlanılamadı",
-            "no_users": "Tartıda kullanıcı bulunamadı"
+            "no_users": "Tartıda kullanıcı bulunamadı",
+            "device_id_required": "Bir Cihaz ID girin ya da tartıyı hesabınızdan seçmek için Kullanıcı Kodu girin.",
+            "no_users_selected": "En az bir kullanıcı seçin."
         },
         "step": {
             "user": {
                 "data": {
                     "access_id": "Erişim ID",
                     "access_key": "Erişim Anahtarı",
-                    "device_id": "Cihaz ID",
+                    "device_id": "Cihaz ID (Kullanıcı Kodu ile isteğe bağlı)",
                     "region": "Bölge",
                     "scan_interval": "Güncelleme Aralığı (saniye)",
                     "api_error_notification": "API hata bildirimlerini göster",
@@ -32,7 +37,8 @@
                 "title": "Tuya Akıllı Tartı Kurulumu",
                 "data_description": {
                     "user_code": "Smart Life / Tuya Smart uygulaması > Ben > Ayarlar (dişli) > Hesap ve Güvenlik > Kullanıcı Kodu. Boş bırakırsanız yalnızca periyodik sorgulama yapılır; kod girerseniz bir sonraki adımda QR okutursunuz ve tartıya çıkınca anında güncelleme alırsınız.",
-                    "region": "Tuya IoT projenizin veri merkezi."
+                    "region": "Tuya IoT projenizin veri merkezi.",
+                    "device_id": "Kullanıcı Kodu girerseniz boş bırakabilirsiniz: tartıyı hesabınızdaki cihaz listesinden seçersiniz."
                 }
             },
             "qr": {
@@ -45,22 +51,131 @@
             "users": {
                 "data": {
                     "birth_date": "Doğum Tarihi (GG.AA.YYYY)",
-                    "gender": "Cinsiyet"
+                    "gender": "Cinsiyet",
+                    "height": "Boy, cm (isteğe bağlı)"
                 },
                 "description": "{user_name} (ID: {user_id}) kullanıcısı için bilgileri girin",
-                "title": "Kullanıcı Yapılandırması"
+                "title": "Kullanıcı Yapılandırması",
+                "data_description": {
+                    "height": "Yalnızca tartı bu kullanıcı için boy göndermediğinde kullanılır."
+                }
+            },
+            "device": {
+                "title": "Tartınızı seçin",
+                "description": "Az önce bağladığınız hesaptaki cihazlar. Akıllı tartılar listenin başında.",
+                "data": {
+                    "device_id": "Tartı"
+                }
+            },
+            "select_users": {
+                "title": "Kullanıcıları seçin",
+                "description": "Bu tartıyı kullanan kişileri seçin. Adı unknown olan (ya da ID'si 0 olan) kayıt, tartının bir profile atayamadığı tartımdır; varsayılan olarak seçili gelmez.",
+                "data": {
+                    "selected": "Kullanıcılar"
+                }
+            },
+            "reauth_confirm": {
+                "title": "Tuya hesabınızı yeniden bağlayın",
+                "description": "QR girişinin süresi doldu ya da iptal edildi, bu yüzden anlık güncellemeler durdu. Kullanıcı Kodunuzu onaylayın ve yeni bir QR kodu okutun.",
+                "data": {
+                    "user_code": "Kullanıcı Kodu"
+                }
+            },
+            "reauth_api": {
+                "title": "Tuya API bilgilerini güncelleyin",
+                "description": "Tuya, Access ID / Access Key bilgilerini reddetti. Tuya IoT Platform'daki geçerli bilgileri girin.",
+                "data": {
+                    "access_id": "Access ID",
+                    "access_key": "Access Key"
+                }
             }
         }
     },
     "options": {
         "step": {
             "init": {
+                "title": "Tuya Akıllı Tartı Seçenekleri",
+                "menu_options": {
+                    "settings": "Güncelleme aralığı ve bildirimler",
+                    "relink": "QR bağla / yeniden bağla (anlık güncelleme)",
+                    "edit_users": "Kullanıcıyı düzenle ya da sil",
+                    "add_users": "Kullanıcı ekle"
+                }
+            },
+            "settings": {
+                "title": "Tuya Akıllı Tartı Seçenekleri",
                 "data": {
                     "scan_interval": "Güncelleme Aralığı (saniye)",
                     "api_error_notification": "API hata bildirimlerini göster"
+                }
+            },
+            "relink": {
+                "title": "Tuya hesabınızı bağlayın",
+                "description": "Smart Life / Tuya Smart uygulaması > Ben > Ayarlar (dişli) > Hesap ve Güvenlik > Kullanıcı Kodu. Anlık güncellemeler için bu bağlantı gerekir.",
+                "data": {
+                    "user_code": "Kullanıcı Kodu"
+                }
+            },
+            "relink_qr": {
+                "title": "QR kodu okutun",
+                "description": "Smart Life / Tuya Smart uygulamasını açın, Ben sekmesinde sağ üstteki tara simgesine dokunun, kodu okutup onaylayın. Ardından Gönder'e basın.",
+                "data": {
+                    "qr_code": "QR kodu"
+                }
+            },
+            "edit_users": {
+                "title": "Kullanıcı seçin",
+                "data": {
+                    "user_id": "Kullanıcı"
+                }
+            },
+            "edit_user": {
+                "title": "Kullanıcıyı düzenle",
+                "description": "{user_name} (ID: {user_id}) bilgileri",
+                "data": {
+                    "birth_date": "Doğum Tarihi (GG.AA.YYYY)",
+                    "gender": "Cinsiyet",
+                    "height": "Boy, cm (isteğe bağlı)",
+                    "remove": "Bu kullanıcıyı sil"
                 },
-                "title": "Tuya Akıllı Tartı Seçenekleri"
+                "data_description": {
+                    "height": "Yalnızca tartı bu kullanıcı için boy göndermediğinde kullanılır.",
+                    "remove": "Kullanıcının varlıklarını siler. Tartıdaki geçmişine dokunulmaz."
+                }
+            },
+            "add_users": {
+                "title": "Kullanıcı ekle",
+                "description": "Bu kullanıcılar tartıda bulundu ama henüz kurulu değil.",
+                "data": {
+                    "selected": "Kullanıcılar"
+                }
+            },
+            "add_user": {
+                "title": "Kullanıcı yapılandırması",
+                "description": "{user_name} (ID: {user_id}) kullanıcısı için bilgileri girin",
+                "data": {
+                    "birth_date": "Doğum Tarihi (GG.AA.YYYY)",
+                    "gender": "Cinsiyet",
+                    "height": "Boy, cm (isteğe bağlı)"
+                },
+                "data_description": {
+                    "height": "Yalnızca tartı bu kullanıcı için boy göndermediğinde kullanılır."
+                }
             }
+        },
+        "abort": {
+            "cannot_connect": "Kullanıcılar Tuya API'sinden okunamadı.",
+            "no_new_users": "Tartıda bulunan tüm kullanıcılar zaten kurulu."
+        },
+        "error": {
+            "invalid_date": "Geçersiz tarih formatı. GG.AA.YYYY kullanın",
+            "invalid_age": "Geçersiz yaş aralığı (0-120 yaş arası olmalı)",
+            "qr_failed": "Giriş QR kodu oluşturulamadı. Kullanıcı kodunu kontrol edin.",
+            "qr_not_scanned": "QR kod henüz onaylanmadı. Uygulamada okutup tekrar Gönder'e basın.",
+            "device_not_in_account": "Cihaz, QR ile giriş yaptığınız uygulama hesabında bulunamadı.",
+            "cannot_connect": "Tuya API'ye bağlanılamadı",
+            "cannot_remove_last": "Son kullanıcı silinemez.",
+            "no_users_selected": "En az bir kullanıcı seçin."
         }
     },
     "entity": {
@@ -138,6 +253,9 @@
             },
             "bmi": {
                 "name": "VKİ"
+            },
+            "last_push_message": {
+                "name": "Tartıdan son mesaj"
             }
         },
         "button": {
@@ -153,6 +271,37 @@
                     "female": "Kadın"
                 }
             }
+        },
+        "binary_sensor": {
+            "push_connected": {
+                "name": "Anlık güncelleme (MQTT)"
+            }
+        },
+        "event": {
+            "weighed": {
+                "name": "Tartıldı",
+                "state_attributes": {
+                    "event_type": {
+                        "state": {
+                            "weighed": "Tartıldı"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "issues": {
+        "session_expired": {
+            "title": "Tuya QR girişinin süresi doldu",
+            "description": "Tuya, QR girişini art arda birkaç kez reddetti. Bu yüzden {device_id} tartısı için anlık (MQTT) güncellemeler kapalı, entegrasyon yalnızca periyodik sorgu yapıyor. Ayarlar > Cihazlar ve hizmetler'den bu entegrasyonu seçip yeni bir QR kodu okutarak yeniden doğrulayın (ya da Yapılandır > QR bağla / yeniden bağla)."
+        },
+        "device_not_in_account": {
+            "title": "Tartı bağlı hesapta bulunamadı",
+            "description": "{device_id} tartısı, QR girişinde kullanılan Smart Life / Tuya Smart hesabında yok, bu yüzden anlık güncellemeler kapalı. Kullanıcı Kodunun tartıya sahip hesaba ait olduğunu kontrol edin, sonra Yapılandır > QR bağla / yeniden bağla'yı kullanın."
+        },
+        "api_quota_exhausted": {
+            "title": "Tuya API kotası doldu",
+            "description": "Tuya şunu yanıtladı: {error}. Tuya IoT Platform'da (Cloud > Cloud Services) IoT Core hizmeti yenilenene kadar yeni tartımlar analiz edilemez. O zamana kadar son bilinen değerler görünür kalır."
         }
     }
 }

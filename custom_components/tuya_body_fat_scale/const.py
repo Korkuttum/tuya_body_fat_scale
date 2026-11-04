@@ -37,6 +37,15 @@ MQTT_RESTART_AFTER_CHECKS = 3  # consecutive unhealthy checks before rebuilding
 MQTT_MAX_RESTART_BACKOFF = 300
 MQTT_DOWN_MAX_INTERVAL = 3600  # while push is down, poll at least this often
 SDK_RECOMMENDED_VERSION = (0, 2, 15)  # first SDK with its own robust MQTT reconnect
+SESSION_REAUTH_AFTER_FAILURES = 3  # consecutive API rejections before asking for a new QR login
+REAUTH_TARGET = "reauth_target"  # flow context key: "session" (QR) or "api" (Access ID/Key)
+REAUTH_SESSION = "session"
+REAUTH_API = "api"
+
+# Repairs issue ids (suffix with the entry id)
+ISSUE_SESSION_EXPIRED = "session_expired"
+ISSUE_DEVICE_NOT_IN_ACCOUNT = "device_not_in_account"
+ISSUE_API_QUOTA = "api_quota_exhausted"
 
 # Configuration Defaults
 DEFAULT_SCAN_INTERVAL = 300  # 5 minutes

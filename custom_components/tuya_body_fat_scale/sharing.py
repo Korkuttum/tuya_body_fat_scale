@@ -16,10 +16,24 @@ from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import async_track_time_interval
 from tuya_sharing import Manager, SharingTokenListener
 
+try:  # raised by the SDK when Tuya rejects a request (expired/invalid token, ...)
+    from tuya_sharing.exceptions import ApiRequestException
+except ImportError:  # pragma: no cover - very old SDK
+
+    class ApiRequestException(Exception):  # type: ignore[no-redef]
+        """Placeholder so isinstance checks keep working."""
+
 from .const import (
+    DOMAIN,
+    ISSUE_DEVICE_NOT_IN_ACCOUNT,
+    ISSUE_SESSION_EXPIRED,
+    REAUTH_SESSION,
+    REAUTH_TARGET,
+    SESSION_REAUTH_AFTER_FAILURES,
     CONF_DEVICE_ID,
     CONF_SESSION,
     CONF_USER_CODE,
@@ -38,6 +52,11 @@ _LOGGER = logging.getLogger(__name__)
 
 class DeviceNotInAccount(Exception):
     """The configured device is not part of the QR-linked account."""
+
+
+def is_device_message(msg: dict[str, Any], device_id: str) -> bool:
+    """Return True for any status message of the device (not only weighings)."""
+    return msg.get("protocol") == 4 and (msg.get("data") or {}).get("devId") == device_id
 
 
 def is_measurement_message(msg: dict[str, Any], device_id: str) -> bool:
@@ -113,13 +132,17 @@ class ScaleSharingClient:
         on_connection_change: Callable[[bool], None],
         manager_factory: Callable[..., Any] = build_manager,
         on_resync: Callable[[], None] | None = None,
+        on_activity: Callable[[], None] | None = None,
     ) -> None:
         self.hass = hass
         self.entry = entry
         self._on_measurement = on_measurement
         self._on_connection_change = on_connection_change
         self._on_resync = on_resync
+        self._on_activity = on_activity
         self._seen_client: Any = None
+        self._api_rejections = 0
+        self._reauth_started = False
         self._manager_factory = manager_factory
         self._device_id: str = entry.data[CONF_DEVICE_ID]
         self._manager: Any = None
@@ -194,17 +217,57 @@ class ScaleSharingClient:
             self._manager = await self.hass.async_add_executor_job(self._connect_blocking)
             self._failures = 0
             self._unhealthy = 0
+            self._api_rejections = 0
+            self._reauth_started = False
+            self._clear_issues()
         except DeviceNotInAccount:
             _LOGGER.error(
                 "Device %s is not in the QR-linked account; falling back to polling",
                 self._device_id,
             )
+            self._create_issue(ISSUE_DEVICE_NOT_IN_ACCOUNT, ir.IssueSeverity.ERROR)
             self._schedule_backoff()
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning("Could not start scale push (%s); using polling", err)
+            if isinstance(err, ApiRequestException):
+                # Tuya answered but refused: the QR session is most likely expired/revoked.
+                # Network errors are not counted, they say nothing about the session.
+                self._api_rejections += 1
+                if self._api_rejections >= SESSION_REAUTH_AFTER_FAILURES:
+                    self._start_reauth()
             self._schedule_backoff()
         finally:
             self._busy = False
+
+    def _issue_id(self, kind: str) -> str:
+        return f"{kind}_{self.entry.entry_id}"
+
+    def _create_issue(self, kind: str, severity: ir.IssueSeverity) -> None:
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            self._issue_id(kind),
+            is_fixable=False,
+            severity=severity,
+            translation_key=kind,
+            translation_placeholders={"device_id": self._device_id},
+        )
+
+    def _clear_issues(self) -> None:
+        for kind in (ISSUE_SESSION_EXPIRED, ISSUE_DEVICE_NOT_IN_ACCOUNT):
+            ir.async_delete_issue(self.hass, DOMAIN, self._issue_id(kind))
+
+    def _start_reauth(self) -> None:
+        """Ask the user to scan a new QR code (once per outage)."""
+        if self._reauth_started:
+            return
+        self._reauth_started = True
+        _LOGGER.error(
+            "The Tuya QR session was rejected %d times in a row; asking for a new QR login",
+            self._api_rejections,
+        )
+        self._create_issue(ISSUE_SESSION_EXPIRED, ir.IssueSeverity.ERROR)
+        self.entry.async_start_reauth(self.hass, context={REAUTH_TARGET: REAUTH_SESSION})
 
     def _schedule_backoff(self) -> None:
         self._failures += 1
@@ -249,6 +312,8 @@ class ScaleSharingClient:
 
     def _handle_message(self, msg: dict[str, Any]) -> None:
         """Called from the MQTT thread."""
+        if is_device_message(msg, self._device_id) and self._on_activity:
+            self.hass.loop.call_soon_threadsafe(self._on_activity)
         if is_measurement_message(msg, self._device_id):
             self.hass.loop.call_soon_threadsafe(self._on_measurement)
 

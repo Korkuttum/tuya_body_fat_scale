@@ -1,7 +1,10 @@
 {
     "config": {
         "abort": {
-            "already_configured": "Device is already configured"
+            "already_configured": "Device is already configured",
+            "reauth_successful": "Re-authentication was successful",
+            "no_devices": "No devices were found in that account.",
+            "no_users": "No users to set up."
         },
         "error": {
             "cannot_connect": "Failed to connect to Tuya API",
@@ -12,14 +15,16 @@
             "invalid_age": "Invalid age range (must be between 0-120 years)",
             "qr_failed": "Could not create a login QR code. Check the user code.",
             "qr_not_scanned": "The QR code was not confirmed yet. Scan it in the app and press Submit again.",
-            "device_not_in_account": "This device was not found in the app account you scanned with."
+            "device_not_in_account": "This device was not found in the app account you scanned with.",
+            "device_id_required": "Enter a Device ID, or a User Code to pick the scale from your account.",
+            "no_users_selected": "Select at least one user."
         },
         "step": {
             "user": {
                 "data": {
                     "access_id": "Access ID",
                     "access_key": "Access Key",
-                    "device_id": "Device ID",
+                    "device_id": "Device ID (optional with a User Code)",
                     "region": "Region",
                     "scan_interval": "Update Interval (seconds)",
                     "api_error_notification": "Show API error notifications",
@@ -29,7 +34,8 @@
                 "title": "Tuya Body Fat Scale Setup",
                 "data_description": {
                     "user_code": "Smart Life / Tuya Smart app > Me > Settings (gear) > Account and Security > User Code. Leave empty to keep polling only; with a code you scan a QR next and get instant updates when someone steps on the scale.",
-                    "region": "Data center of your Tuya IoT project."
+                    "region": "Data center of your Tuya IoT project.",
+                    "device_id": "Leave empty when you enter a User Code: you will pick the scale from the list of devices in your account."
                 }
             },
             "qr": {
@@ -42,22 +48,131 @@
             "users": {
                 "data": {
                     "birth_date": "Birth Date (DD.MM.YYYY)",
-                    "gender": "Gender"
+                    "gender": "Gender",
+                    "height": "Height in cm (optional)"
                 },
                 "description": "Enter details for user {user_name} (ID: {user_id})",
-                "title": "Configure User"
+                "title": "Configure User",
+                "data_description": {
+                    "height": "Only used when the scale does not report a height for this user."
+                }
+            },
+            "device": {
+                "title": "Choose your scale",
+                "description": "These are the devices of the account you just linked. Body fat scales are listed first.",
+                "data": {
+                    "device_id": "Scale"
+                }
+            },
+            "select_users": {
+                "title": "Choose users",
+                "description": "Pick the people who use this scale. An entry named unknown (or with ID 0) is a weighing the scale could not assign to a profile; it is not selected by default.",
+                "data": {
+                    "selected": "Users"
+                }
+            },
+            "reauth_confirm": {
+                "title": "Link your Tuya account again",
+                "description": "The QR login expired or was revoked, so instant updates are paused. Confirm your User Code and scan a new QR code.",
+                "data": {
+                    "user_code": "User Code"
+                }
+            },
+            "reauth_api": {
+                "title": "Update the Tuya API credentials",
+                "description": "Tuya rejected the Access ID / Access Key. Enter valid ones from the Tuya IoT Platform.",
+                "data": {
+                    "access_id": "Access ID",
+                    "access_key": "Access Key"
+                }
             }
         }
     },
     "options": {
         "step": {
             "init": {
+                "title": "Tuya Body Fat Scale Options",
+                "menu_options": {
+                    "settings": "Update interval and notifications",
+                    "relink": "Link / re-link QR (instant updates)",
+                    "edit_users": "Edit or remove a user",
+                    "add_users": "Add users"
+                }
+            },
+            "settings": {
+                "title": "Tuya Body Fat Scale Options",
                 "data": {
                     "scan_interval": "Update Interval (seconds)",
                     "api_error_notification": "Show API error notifications"
+                }
+            },
+            "relink": {
+                "title": "Link your Tuya account",
+                "description": "Smart Life / Tuya Smart app > Me > Settings (gear) > Account and Security > User Code. Instant updates need this link.",
+                "data": {
+                    "user_code": "User Code"
+                }
+            },
+            "relink_qr": {
+                "title": "Scan the QR code",
+                "description": "Open the Smart Life / Tuya Smart app, tap the scan icon on the Me tab (top right), scan the code and confirm. Then press Submit.",
+                "data": {
+                    "qr_code": "QR code"
+                }
+            },
+            "edit_users": {
+                "title": "Choose a user",
+                "data": {
+                    "user_id": "User"
+                }
+            },
+            "edit_user": {
+                "title": "Edit user",
+                "description": "Details of {user_name} (ID: {user_id})",
+                "data": {
+                    "birth_date": "Birth Date (DD.MM.YYYY)",
+                    "gender": "Gender",
+                    "height": "Height in cm (optional)",
+                    "remove": "Remove this user"
                 },
-                "title": "Tuya Body Fat Scale Options"
+                "data_description": {
+                    "height": "Only used when the scale does not report a height for this user.",
+                    "remove": "Deletes the user's entities. Their history on the scale is not touched."
+                }
+            },
+            "add_users": {
+                "title": "Add users",
+                "description": "These users were found on the scale but are not set up yet.",
+                "data": {
+                    "selected": "Users"
+                }
+            },
+            "add_user": {
+                "title": "Configure user",
+                "description": "Enter details for user {user_name} (ID: {user_id})",
+                "data": {
+                    "birth_date": "Birth Date (DD.MM.YYYY)",
+                    "gender": "Gender",
+                    "height": "Height in cm (optional)"
+                },
+                "data_description": {
+                    "height": "Only used when the scale does not report a height for this user."
+                }
             }
+        },
+        "abort": {
+            "cannot_connect": "Could not read the users from the Tuya API.",
+            "no_new_users": "All users found on the scale are already set up."
+        },
+        "error": {
+            "invalid_date": "Invalid date format. Use DD.MM.YYYY",
+            "invalid_age": "Invalid age range (must be between 0-120 years)",
+            "qr_failed": "Could not create a login QR code. Check the user code.",
+            "qr_not_scanned": "The QR code was not confirmed yet. Scan it in the app and press Submit again.",
+            "device_not_in_account": "This device was not found in the app account you scanned with.",
+            "cannot_connect": "Failed to connect to Tuya API",
+            "cannot_remove_last": "The last user cannot be removed.",
+            "no_users_selected": "Select at least one user."
         }
     },
     "entity": {
@@ -135,6 +250,9 @@
             },
             "bmi": {
                 "name": "BMI"
+            },
+            "last_push_message": {
+                "name": "Last message from scale"
             }
         },
         "button": {
@@ -150,6 +268,37 @@
                     "female": "Female"
                 }
             }
+        },
+        "binary_sensor": {
+            "push_connected": {
+                "name": "Instant updates (MQTT)"
+            }
+        },
+        "event": {
+            "weighed": {
+                "name": "Weighed",
+                "state_attributes": {
+                    "event_type": {
+                        "state": {
+                            "weighed": "Weighed"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "issues": {
+        "session_expired": {
+            "title": "Tuya QR login expired",
+            "description": "Tuya rejected the QR login several times in a row, so instant (MQTT) updates for scale {device_id} are off and the integration only polls. Open Settings > Devices & services, choose this integration and re-authenticate by scanning a new QR code (or use Configure > Link / re-link QR)."
+        },
+        "device_not_in_account": {
+            "title": "Scale not found in the linked account",
+            "description": "The scale {device_id} is not in the Smart Life / Tuya Smart account used for the QR login, so instant updates are off. Check that the User Code belongs to the account that owns the scale, then use Configure > Link / re-link QR."
+        },
+        "api_quota_exhausted": {
+            "title": "Tuya API quota exhausted",
+            "description": "Tuya answered: {error}. New weighings cannot be analysed until the IoT Core service is renewed in the Tuya IoT Platform (Cloud > Cloud Services). The last known values stay visible until then."
         }
     }
 }
