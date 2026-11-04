@@ -114,3 +114,17 @@ async def test_null_height_record_is_skipped(hass):
     assert c.data["u1"]["weight"] == 70.5
     assert api.reports == 1
     assert c.last_update_success
+
+
+async def test_fallback_interval_is_capped_when_push_is_configured(hass):
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_USERS: USERS}, options={})
+    entry.add_to_hass(hass)
+    c = TuyaScaleDataUpdateCoordinator(hass, FakeApi([[record(1)]]), 86400, entry)
+    c.hass.async_create_task = MagicMock(side_effect=lambda coro: coro.close())
+    c.set_push_connected(False)
+    assert c.update_interval == timedelta(seconds=86400)  # polling-only keeps the user's value
+    c.sharing = object()
+    c.set_push_connected(False)
+    assert c.update_interval == timedelta(seconds=3600)
+    c.set_push_connected(True)
+    assert c.update_interval == timedelta(seconds=MQTT_FALLBACK_INTERVAL)

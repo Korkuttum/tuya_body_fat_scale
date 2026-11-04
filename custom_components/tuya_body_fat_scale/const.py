@@ -35,6 +35,8 @@ MQTT_RETRIES = 3
 MQTT_HEALTH_INTERVAL = 60
 MQTT_RESTART_AFTER_CHECKS = 3  # consecutive unhealthy checks before rebuilding
 MQTT_MAX_RESTART_BACKOFF = 300
+MQTT_DOWN_MAX_INTERVAL = 3600  # while push is down, poll at least this often
+SDK_RECOMMENDED_VERSION = (0, 2, 15)  # first SDK with its own robust MQTT reconnect
 
 # Configuration Defaults
 DEFAULT_SCAN_INTERVAL = 300  # 5 minutes

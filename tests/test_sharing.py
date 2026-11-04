@@ -190,3 +190,38 @@ async def test_token_refresh_keeps_endpoint_and_terminal(hass, entry):
     assert s["token"]["access_token"] == "new"
     assert s["endpoint"] == "https://apigw.tuyaeu.com" and s["terminal_id"] == "term"
     await client.async_stop()
+
+
+async def test_silent_reconnect_triggers_catch_up(hass, entry):
+    resyncs = []
+    mgr = FakeManager()
+    client = sharing.ScaleSharingClient(
+        hass, entry, lambda: None, lambda c: None,
+        manager_factory=lambda s, c, listener: mgr, on_resync=lambda: resyncs.append(1),
+    )
+    await client.async_start()
+    await client._async_health_check()  # first connect: nothing to catch up
+    await client._async_health_check()  # same client object: still nothing
+    assert resyncs == []
+    # the SDK reconnected within one check interval: new paho client object
+    new_client = MagicMock()
+    new_client.is_connected.return_value = True
+    mgr.mq.client = new_client
+    await client._async_health_check()
+    assert resyncs == [1]
+    await client._async_health_check()
+    assert resyncs == [1]
+    await client.async_stop()
+
+
+def test_old_sdk_version_warns(monkeypatch, caplog):
+    monkeypatch.setattr(sharing.importlib.metadata, "version", lambda name: "0.2.8")
+    assert sharing.sdk_version() == (0, 2, 8)
+    sharing.warn_if_old_sdk()
+    assert "older than 0.2.15" in caplog.text
+
+
+def test_current_sdk_version_is_quiet(monkeypatch, caplog):
+    monkeypatch.setattr(sharing.importlib.metadata, "version", lambda name: "0.2.15")
+    sharing.warn_if_old_sdk()
+    assert "older than" not in caplog.text

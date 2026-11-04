@@ -6,7 +6,9 @@ measurement exists; the numbers still come from the Tuya Cloud API.
 """
 from __future__ import annotations
 
+import importlib.metadata
 import logging
+import re
 import time
 from typing import Any, Callable
 
@@ -26,6 +28,7 @@ from .const import (
     MQTT_HEALTH_INTERVAL,
     MQTT_MAX_RESTART_BACKOFF,
     MQTT_RESTART_AFTER_CHECKS,
+    SDK_RECOMMENDED_VERSION,
     SESSION_TOKEN_KEYS,
     SHARING_CLIENT_ID,
 )
@@ -67,6 +70,29 @@ def build_manager(session: dict[str, Any], user_code: str, listener: Any = None)
     )
 
 
+def sdk_version() -> tuple[int, ...] | None:
+    """Installed tuya-device-sharing-sdk version as a tuple, if it can be read."""
+    try:
+        raw = importlib.metadata.version("tuya-device-sharing-sdk")
+    except importlib.metadata.PackageNotFoundError:
+        return None
+    parts = re.findall(r"\d+", raw)[:3]
+    return tuple(int(p) for p in parts) if parts else None
+
+
+def warn_if_old_sdk() -> None:
+    """Log the SDK version; older ones lack its own reconnect logic (blocking)."""
+    version = sdk_version()
+    _LOGGER.info("tuya-device-sharing-sdk version: %s", version)
+    if version is not None and version < SDK_RECOMMENDED_VERSION:
+        _LOGGER.warning(
+            "tuya-device-sharing-sdk %s is older than %s; MQTT reconnects rely on this "
+            "integration's health check (up to ~3 minutes) instead of the SDK's own logic",
+            ".".join(map(str, version)),
+            ".".join(map(str, SDK_RECOMMENDED_VERSION)),
+        )
+
+
 def mqtt_connected(manager: Any) -> bool:
     """Whether the SDK's MQTT thread is alive and the broker connection is up."""
     mq = getattr(manager, "mq", None)
@@ -86,11 +112,14 @@ class ScaleSharingClient:
         on_measurement: Callable[[], None],
         on_connection_change: Callable[[bool], None],
         manager_factory: Callable[..., Any] = build_manager,
+        on_resync: Callable[[], None] | None = None,
     ) -> None:
         self.hass = hass
         self.entry = entry
         self._on_measurement = on_measurement
         self._on_connection_change = on_connection_change
+        self._on_resync = on_resync
+        self._seen_client: Any = None
         self._manager_factory = manager_factory
         self._device_id: str = entry.data[CONF_DEVICE_ID]
         self._manager: Any = None
@@ -107,6 +136,7 @@ class ScaleSharingClient:
 
     async def async_start(self) -> None:
         """Start listening. Never raises: failures fall back to polling."""
+        await self.hass.async_add_executor_job(warn_if_old_sdk)
         await self._async_connect()
         self._unsub = async_track_time_interval(
             self.hass, self._async_health_check, timedelta(seconds=MQTT_HEALTH_INTERVAL)
@@ -158,6 +188,7 @@ class ScaleSharingClient:
         self._busy = True
         try:
             old, self._manager = self._manager, None
+            self._seen_client = None
             if old is not None:
                 await self.hass.async_add_executor_job(self._stop_manager, old)
             self._manager = await self.hass.async_add_executor_job(self._connect_blocking)
@@ -189,14 +220,32 @@ class ScaleSharingClient:
             self._set_connected(False)
             return
         healthy = mqtt_connected(self._manager)
+        was_connected = self._connected
         self._set_connected(healthy)
         if healthy:
             self._unhealthy = 0
+            self._check_silent_reconnect(was_connected)
             return
         self._unhealthy += 1
         if self._unhealthy >= MQTT_RESTART_AFTER_CHECKS and time.monotonic() >= self._next_attempt:
             _LOGGER.info("Scale push unhealthy for %d checks, rebuilding", self._unhealthy)
             await self._async_connect()
+
+    def _check_silent_reconnect(self, was_connected: bool) -> None:
+        """The SDK swaps its MQTT client on every reconnect (drop or 2 h renewal).
+
+        A drop shorter than one health-check interval is never seen as "down", yet a
+        weighing during it is lost (no persistent MQTT session). A changed client
+        object reveals the reconnect, so fetch once to catch up.
+        """
+        client = getattr(getattr(self._manager, "mq", None), "client", None)
+        if client is None:
+            return
+        if self._seen_client is not None and client is not self._seen_client and was_connected:
+            _LOGGER.debug("Scale push reconnected between checks; catching up")
+            if self._on_resync:
+                self._on_resync()
+        self._seen_client = client
 
     def _handle_message(self, msg: dict[str, Any]) -> None:
         """Called from the MQTT thread."""

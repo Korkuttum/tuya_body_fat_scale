@@ -25,6 +25,7 @@ from .const import (
     CONF_USERS,
     CONF_API_ERROR_NOTIFICATION,  # eklendi
     MQTT_DEBOUNCE_SECONDS,
+    MQTT_DOWN_MAX_INTERVAL,
     MQTT_FALLBACK_INTERVAL,
     MQTT_RETRIES,
     MQTT_RETRY_DELAY,
@@ -104,11 +105,21 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
         was_connected = self.push_connected
         self.push_connected = connected
         self.update_interval = (
-            timedelta(seconds=MQTT_FALLBACK_INTERVAL) if connected else self._poll_interval
+            timedelta(seconds=MQTT_FALLBACK_INTERVAL) if connected else self._fallback_interval()
         )
         if connected and not was_connected:
             # catch up on anything missed while the push connection was down
-            self.hass.async_create_task(self.async_request_refresh())
+            self.resync()
+
+    def _fallback_interval(self) -> timedelta:
+        """Polling interval while push is not connected (capped when push is configured)."""
+        if self.sharing is None:
+            return self._poll_interval
+        return min(self._poll_interval, timedelta(seconds=MQTT_DOWN_MAX_INTERVAL))
+
+    def resync(self) -> None:
+        """Fetch once to catch up on measurements a push gap may have swallowed."""
+        self.hass.async_create_task(self.async_request_refresh())
 
     def handle_measurement(self) -> None:
         """A push message says the scale reported something; refresh after it settles."""

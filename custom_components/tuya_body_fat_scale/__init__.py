@@ -66,7 +66,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 entry,
                 coordinator.handle_measurement,
                 coordinator.set_push_connected,
+                on_resync=coordinator.resync,
             )
+            # push not connected yet: poll at the capped fallback interval until it is
+            coordinator.set_push_connected(False)
             await coordinator.sharing.async_start()
         else:
             _LOGGER.info("No QR session configured; using polling only")

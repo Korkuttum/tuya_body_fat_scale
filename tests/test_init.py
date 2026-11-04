@@ -33,9 +33,10 @@ def make_entry(hass, with_session=True):
 
 
 def patches(manager):
-    def client(hass, entry, on_m, on_c):
+    def client(hass, entry, on_m, on_c, on_resync=None):
         return sharing.ScaleSharingClient(
-            hass, entry, on_m, on_c, manager_factory=lambda s, c, listener: manager
+            hass, entry, on_m, on_c, manager_factory=lambda s, c, listener: manager,
+            on_resync=on_resync,
         )
 
     api = FakeApi([[record(1000)]])
