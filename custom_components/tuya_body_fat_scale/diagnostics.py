@@ -30,7 +30,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
         "options": dict(entry.options),
         "has_qr_session": bool(entry.data.get(CONF_SESSION)),
         "users": len(users),
-        "sdk_version": ".".join(map(str, sdk_version() or ())) or None,
+        "sdk_version": ".".join(map(str, await hass.async_add_executor_job(sdk_version) or ())) or None,
     }
     if coordinator is not None:
         info["coordinator"] = {
