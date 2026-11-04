@@ -40,6 +40,7 @@ from .const import (
     SHARING_CLIENT_ID,
     SHARING_SCHEMA,
 )
+from .helpers import find_device
 from .sharing import build_manager, session_token
 
 _LOGGER = logging.getLogger(__name__)
@@ -547,7 +548,7 @@ class TuyaScaleOptionsFlow(config_entries.OptionsFlow):
             if entity.unique_id.startswith(prefix):
                 ent_reg.async_remove(entity.entity_id)
         dev_reg = dr.async_get(self.hass)
-        device = dev_reg.async_get_device(identifiers={(DOMAIN, f"{self.entry.entry_id}_{user_id}")})
+        device = find_device(dev_reg, self.entry.entry_id, f"{self.entry.entry_id}_{user_id}")
         if device is not None:
             dev_reg.async_remove_device(device.id)
 

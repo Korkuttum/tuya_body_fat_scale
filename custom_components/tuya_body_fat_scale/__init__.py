@@ -22,6 +22,7 @@ from .const import (
     ISSUE_DEVICE_NOT_IN_ACCOUNT,
     ISSUE_SESSION_EXPIRED,
 )
+from .helpers import find_device
 from .sharing import ScaleSharingClient
 from .coordinator import TuyaScaleDataUpdateCoordinator
 from .api import TuyaScaleAPI
@@ -104,7 +105,7 @@ def _remove_retired_entities(hass: HomeAssistant, entry: ConfigEntry) -> None:
         if entity.unique_id in retired or entity.unique_id.endswith("_weighed"):
             ent_reg.async_remove(entity.entity_id)
     dev_reg = dr.async_get(hass)
-    device = dev_reg.async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    device = find_device(dev_reg, entry.entry_id, entry.entry_id)
     if device is not None:
         dev_reg.async_remove_device(device.id)
 
