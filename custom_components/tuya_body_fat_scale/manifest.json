@@ -13,5 +13,5 @@
     "requests>=2.25.0",
     "tuya-device-sharing-sdk>=0.2.1"
   ],
-  "version": "2.0.0-beta.1"
+  "version": "2.0.0-beta.2"
 }
