@@ -9,6 +9,7 @@ Changes:
 
 import asyncio
 import logging
+import time
 from datetime import datetime, timedelta
 import async_timeout
 from homeassistant.core import HomeAssistant
@@ -30,7 +31,7 @@ from .const import (
     ISSUE_API_QUOTA,
     MQTT_DEBOUNCE_SECONDS,
     MQTT_DOWN_MAX_INTERVAL,
-    MQTT_FALLBACK_INTERVAL,
+    MQTT_FIRST_CONNECT_STALE_SECONDS,
     MQTT_RETRIES,
     MQTT_RETRY_DELAY,
 )
@@ -61,6 +62,8 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
         self.push_connected = False
         self.sharing = None
         self.last_push_message = None  # datetime of the last status message from the scale
+        self._push_was_up = False  # push has been connected at least once
+        self._last_fetch = 0.0  # time.monotonic() of the last successful fetch
 
         super().__init__(
             hass,
@@ -124,18 +127,35 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
     # -- MQTT push -----------------------------------------------------
 
     def set_push_connected(self, connected: bool) -> None:
-        """Poll rarely while push works, at the configured interval otherwise."""
+        """No polling while push works; poll at the fallback interval while it is down."""
         was_connected = self.push_connected
         self.push_connected = connected
-        self.update_interval = (
-            timedelta(seconds=MQTT_FALLBACK_INTERVAL) if connected else self._fallback_interval()
-        )
-        if self._listeners:
-            # the pending timer was set with the old interval
-            self._schedule_refresh()
+        if connected:
+            # the scale reports every weighing over MQTT, so nothing is polled periodically
+            self.update_interval = None
+            self._cancel_scheduled_refresh()
+        else:
+            self.update_interval = self._fallback_interval()
+            if self._listeners:
+                # the pending timer (if any) was set with the old interval
+                self._schedule_refresh()
         if connected and not was_connected:
-            # catch up on anything missed while the push connection was down
-            self.resync()
+            # Catch up on weighings missed while the push connection was down. The very first
+            # connection right after the setup fetch needs no extra request.
+            first_and_fresh = (
+                not self._push_was_up
+                and time.monotonic() - self._last_fetch < MQTT_FIRST_CONNECT_STALE_SECONDS
+            )
+            if not first_and_fresh:
+                self.resync()
+        if connected:
+            self._push_was_up = True
+
+    def _cancel_scheduled_refresh(self) -> None:
+        """Drop the pending timer; with update_interval None it would otherwise fire once more."""
+        unsub = getattr(self, "_async_unsub_refresh", None) or getattr(self, "_unschedule_refresh", None)
+        if unsub is not None:
+            unsub()
 
     def note_push_activity(self) -> None:
         """The scale sent any status message over MQTT (shown in the diagnostics download)."""
@@ -270,6 +290,7 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
 
                 self._latest_ts = max(self._latest_ts, newest)
                 self._last_success_data = results
+                self._last_fetch = time.monotonic()
                 ir.async_delete_issue(self.hass, DOMAIN, f"{ISSUE_API_QUOTA}_{self.config_entry.entry_id}")
                 return results
 

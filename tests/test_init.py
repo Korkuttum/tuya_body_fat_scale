@@ -11,7 +11,6 @@ from custom_components.tuya_body_fat_scale.const import (
     CONF_USER_CODE,
     CONF_USERS,
     DOMAIN,
-    MQTT_FALLBACK_INTERVAL,
 )
 
 from .test_coordinator import USERS, FakeApi, record
@@ -59,7 +58,7 @@ async def test_setup_push_and_unload(hass):
 
         await coordinator.sharing._async_health_check()
         assert coordinator.push_connected
-        assert coordinator.update_interval == timedelta(seconds=MQTT_FALLBACK_INTERVAL)
+        assert coordinator.update_interval is None  # connected: nothing is polled
 
         # a token refresh updates the entry but must not reload the integration
         sharing._TokenListener(coordinator.sharing).update_token(

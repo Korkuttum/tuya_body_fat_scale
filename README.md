@@ -82,8 +82,8 @@ Open the integration and choose **Configure**:
 
 ### How the push mode behaves
 
-- While the MQTT connection is up, the scale is refreshed right after a new measurement (and every 6 hours as a safety net).
-- If the connection drops, the integration reconnects by itself. A weighing that happened during a short gap is picked up by a catch-up refresh. While the connection is down the data is polled at the configured update interval, at least once an hour.
+- While the MQTT connection is up, the Tuya API is only queried at startup, right after a weighing, and when you press **Refresh Data**. There is no periodic polling.
+- If the connection drops, the integration reconnects by itself. A weighing that happened during a short gap is picked up by a catch-up refresh. While the connection is down the data is polled at the configured update interval, at least once an hour, until it is back.
 - If Tuya rejects the QR login several times in a row (it expired or was revoked), Home Assistant asks you to re-authenticate: scan a new QR code and everything continues. A Repairs entry explains what happened.
 - Leaving the User Code empty keeps the previous polling-only behaviour. Existing installations keep working without changes.
 

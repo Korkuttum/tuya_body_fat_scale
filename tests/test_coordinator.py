@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.tuya_body_fat_scale import coordinator as coord_mod
-from custom_components.tuya_body_fat_scale.const import CONF_USERS, DOMAIN, MQTT_FALLBACK_INTERVAL
+from custom_components.tuya_body_fat_scale.const import CONF_USERS, DOMAIN
 from custom_components.tuya_body_fat_scale.coordinator import TuyaScaleDataUpdateCoordinator
 
 USERS = {"u1": {"birth_date": "01.01.1990", "gender": "M", "name": "Ali"}}
@@ -64,7 +64,7 @@ async def test_interval_switches_with_push_state(hass):
     c = make(hass, FakeApi([[record(1)]]))
     c.hass.async_create_task = MagicMock(side_effect=lambda coro: coro.close())
     c.set_push_connected(True)
-    assert c.update_interval == timedelta(seconds=MQTT_FALLBACK_INTERVAL)
+    assert c.update_interval is None  # push connected: no periodic polling
     c.set_push_connected(False)
     assert c.update_interval == timedelta(seconds=300)
 
@@ -132,7 +132,7 @@ async def test_fallback_interval_is_capped_when_push_is_configured(hass):
     c.set_push_connected(False)
     assert c.update_interval == timedelta(seconds=3600)
     c.set_push_connected(True)
-    assert c.update_interval == timedelta(seconds=MQTT_FALLBACK_INTERVAL)
+    assert c.update_interval is None  # push connected: no periodic polling
 
 
 def make_with_users(hass, api, users, options=None):

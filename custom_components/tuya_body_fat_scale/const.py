@@ -28,7 +28,7 @@ MEASUREMENT_DP_CODES = frozenset(
     {"weightcount", "time", "weight", "LResistance", "RHR", "LLR", "RLR", "BR"}
 )
 
-MQTT_FALLBACK_INTERVAL = 6 * 3600  # safety poll while push is connected
+MQTT_FIRST_CONNECT_STALE_SECONDS = 300  # data older than this is refreshed when push first connects
 MQTT_DEBOUNCE_SECONDS = 8  # wait for the scale to finish sending
 MQTT_RETRY_DELAY = 10  # cloud history can lag behind the push
 MQTT_RETRIES = 3
