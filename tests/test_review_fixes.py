@@ -97,10 +97,12 @@ async def test_weighing_of_an_unconfigured_user_ends_the_retries(hass, monkeypat
 
 async def test_interval_change_reschedules_the_pending_refresh(hass):
     c = make(hass, FakeApi([[record(1)]]))
+    c.sharing = object()
     c.async_add_listener(lambda: None)
     c.hass.async_create_task = MagicMock(side_effect=lambda coro: coro.close())
+    c.set_push_connected(True)
     with patch.object(c, "_schedule_refresh") as schedule:
-        c.set_push_connected(True)
+        c.set_push_connected(False)  # polling resumes: the timer must be set again
         schedule.assert_called_once()
 
 
