@@ -63,7 +63,7 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
         self.sharing = None
         self.last_push_message = None  # datetime of the last status message from the scale
         self._push_was_up = False  # push has been connected at least once
-        self._last_fetch = 0.0  # time.monotonic() of the last successful fetch
+        self._last_fetch: float | None = None  # time.monotonic() of the last successful fetch
 
         super().__init__(
             hass,
@@ -144,6 +144,7 @@ class TuyaScaleDataUpdateCoordinator(DataUpdateCoordinator):
             # connection right after the setup fetch needs no extra request.
             first_and_fresh = (
                 not self._push_was_up
+                and self._last_fetch is not None
                 and time.monotonic() - self._last_fetch < MQTT_FIRST_CONNECT_STALE_SECONDS
             )
             if not first_and_fresh:
