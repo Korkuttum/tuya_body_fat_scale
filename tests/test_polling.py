@@ -81,3 +81,11 @@ async def test_polling_only_setup_keeps_its_interval(hass):
     assert c.update_interval == timedelta(seconds=600)
     c.set_push_connected(False)
     assert c.update_interval == timedelta(seconds=600)
+
+
+async def test_never_fetched_counts_as_stale_even_right_after_boot(hass, monkeypatch):
+    # a freshly booted host has a tiny monotonic clock: 0.0 must not look like "just fetched"
+    c = make(hass, FakeApi([[record(1000)]]))
+    monkeypatch.setattr(coord_mod.time, "monotonic", lambda: 10.0)
+    c.set_push_connected(True)
+    assert c.resyncs == [1]
